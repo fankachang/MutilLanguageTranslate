@@ -42,16 +42,16 @@
 
 **⚠️ CRITICAL**: 此階段必須完成後，才能開始任何 User Story 的開發
 
-- [ ] T007 建立資料類別定義 `translator/models.py`（Language, TranslationRequest, TranslationResponse, QueueItem, SystemStatus, TranslationStatistics）
-- [ ] T008 [P] 建立列舉值定義 `translator/enums.py`（QualityMode, TranslationStatus, QueueStatus, ExecutionMode, ModelStatus）
-- [ ] T009 [P] 建立錯誤代碼定義 `translator/errors.py`（錯誤代碼常數、錯誤訊息對照表）
-- [ ] T010 實作 TAIDE-LX-7B 模型服務 `translator/services/model_service.py`（單例載入、GPU/CPU 自動偵測、生成參數配置、載入失敗錯誤處理）
-- [ ] T011 實作佇列服務 `translator/services/queue_service.py`（threading.Lock、並發控制、等待佇列管理）
-- [ ] T012 [P] 實作統計服務 `translator/services/statistics_service.py`（滑動視窗、分鐘快照、24 小時統計）
-- [ ] T013 [P] 實作 IP 白名單中介軟體 `translator/middleware/ip_whitelist.py`（CIDR 解析、內網/管理員 IP 驗證）
-- [ ] T014 設定 Django URL 路由 `translation_project/urls.py` 與 `translator/api/urls.py`
-- [ ] T015 建立基礎模板 `translator/templates/translator/base.html`（HTML 骨架、HTMX/Alpine.js 載入、主題切換）
-- [ ] T016 [P] 建立配置載入工具 `translator/utils/config_loader.py`（YAML 解析、驗證）
+- [X] T007 建立資料類別定義 `translator/models.py`（Language, TranslationRequest, TranslationResponse, QueueItem, SystemStatus, TranslationStatistics）
+- [X] T008 [P] 建立列舉值定義 `translator/enums.py`（QualityMode, TranslationStatus, QueueStatus, ExecutionMode, ModelStatus）
+- [X] T009 [P] 建立錯誤代碼定義 `translator/errors.py`（錯誤代碼常數、錯誤訊息對照表）
+- [X] T010 實作 TAIDE-LX-7B 模型服務 `translator/services/model_service.py`（單例載入、GPU/CPU 自動偵測、生成參數配置、載入失敗錯誤處理）
+- [X] T011 實作佇列服務 `translator/services/queue_service.py`（threading.Lock、並發控制、等待佇列管理）
+- [X] T012 [P] 實作統計服務 `translator/services/statistics_service.py`（滑動視窗、分鐘快照、24 小時統計）
+- [X] T013 [P] 實作 IP 白名單中介軟體 `translator/middleware/ip_whitelist.py`（CIDR 解析、內網/管理員 IP 驗證）
+- [X] T014 設定 Django URL 路由 `translation_project/urls.py` 與 `translator/api/urls.py`
+- [X] T015 建立基礎模板 `translator/templates/translator/base.html`（HTML 骨架、HTMX/Alpine.js 載入、主題切換）
+- [X] T016 [P] 建立配置載入工具 `translator/utils/config_loader.py`（YAML 解析、驗證）
 
 **Checkpoint**: 基礎設施就緒 - 可開始 User Story 平行開發
 

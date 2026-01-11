@@ -50,6 +50,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # IP 白名單中介軟體（管理頁面存取控制）
+    'translator.middleware.ip_whitelist.IPWhitelistMiddleware',
 ]
 
 ROOT_URLCONF = 'translation_project.urls'

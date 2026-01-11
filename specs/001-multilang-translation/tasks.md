@@ -65,15 +65,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T017 [US1] 實作翻譯服務核心 `translator/services/translation_service.py`（Prompt 組裝、模型呼叫、結果解析、FR-006 換行格式保留、FR-038 Prompt 注入防護）
-- [ ] T018 [US1] 實作翻譯 API 視圖 `translator/api/views.py` - POST /api/v1/translate/（請求驗證、佇列處理、回應格式化）
-- [ ] T018b [US1] 實作狀態查詢 API 視圖 `translator/api/views.py` - GET /api/v1/translate/{request_id}/status/（佇列位置、處理狀態）
-- [ ] T019 [US1] 實作翻譯 API 序列化器 `translator/api/serializers.py`（TranslationRequestSerializer, TranslationResponseSerializer）
-- [ ] T020 [US1] 建立主翻譯頁面模板 `translator/templates/translator/index.html`（HTMX 表單、Alpine.js 狀態管理）
-- [ ] T021 [US1] 實作頁面視圖 `translator/views.py` - 首頁渲染（語言列表注入）
-- [ ] T022 [US1] 建立翻譯結果片段模板 `translator/templates/translator/partials/result.html`（HTMX 回應片段）
-- [ ] T023 [US1] 實作前端字數統計與複製功能 `translator/static/translator/js/translation.js`（FR-005 即時字數統計、剪貼簿 API）
-- [ ] T024 [US1] 建立翻譯頁面樣式 `translator/static/translator/css/main.css`（響應式佈局、載入動畫）
+- [X] T017 [US1] 實作翻譯服務核心 `translator/services/translation_service.py`（Prompt 組裝、模型呼叫、結果解析、FR-006 換行格式保留、FR-038 Prompt 注入防護）
+- [X] T018 [US1] 實作翻譯 API 視圖 `translator/api/views.py` - POST /api/v1/translate/（請求驗證、佇列處理、回應格式化）
+- [X] T018b [US1] 實作狀態查詢 API 視圖 `translator/api/views.py` - GET /api/v1/translate/{request_id}/status/（佇列位置、處理狀態）
+- [X] T019 [US1] 實作翻譯 API 序列化器 `translator/api/serializers.py`（TranslationRequestSerializer, TranslationResponseSerializer）
+- [X] T020 [US1] 建立主翻譯頁面模板 `translator/templates/translator/index.html`（HTMX 表單、Alpine.js 狀態管理）
+- [X] T021 [US1] 實作頁面視圖 `translator/views.py` - 首頁渲染（語言列表注入）
+- [X] T022 [US1] 建立翻譯結果片段模板 `translator/templates/translator/partials/result.html`（HTMX 回應片段）
+- [X] T023 [US1] 實作前端字數統計與複製功能 `translator/static/translator/js/translation.js`（FR-005 即時字數統計、剪貼簿 API）
+- [X] T024 [US1] 建立翻譯頁面樣式 `translator/static/translator/css/main.css`（響應式佈局、載入動畫）
 
 **Checkpoint**: User Story 1 完成 - 基本翻譯功能可獨立運作與測試
 

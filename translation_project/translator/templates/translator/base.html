@@ -226,7 +226,9 @@
             </a>
             <div class="navbar-nav">
                 <a href="{% url 'translator:index' %}" class="nav-link">翻譯</a>
+                <a href="{% url 'translator:history' %}" class="nav-link">歷史記錄</a>
                 <a href="{% url 'translator:settings' %}" class="nav-link">設定</a>
+                <a href="{% url 'translator:help' %}" class="nav-link">說明</a>
                 <button 
                     class="theme-toggle"
                     @click="theme = theme === 'light' ? 'dark' : 'light'"

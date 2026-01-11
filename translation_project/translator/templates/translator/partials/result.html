@@ -1,0 +1,291 @@
+{# 
+翻譯結果片段 - 用於 HTMX 部分更新
+Translation result partial - for HTMX partial updates
+#}
+
+{% if status == 'completed' %}
+<div class="translation-result success" id="translation-result">
+    <div class="result-header">
+        <span class="status-badge status-completed">✓ 翻譯完成</span>
+        {% if detected_language %}
+        <span class="detected-info">
+            偵測語言：<strong>{{ detected_language_name }}</strong>
+            {% if confidence_score %}
+            <span class="confidence">({{ confidence_percent }}% 信心度)</span>
+            {% endif %}
+        </span>
+        {% endif %}
+    </div>
+    
+    <div class="result-content">
+        <pre class="translated-text">{{ translated_text }}</pre>
+    </div>
+    
+    <div class="result-actions">
+        <button 
+            type="button" 
+            class="btn btn-secondary btn-sm"
+            onclick="copyToClipboard('{{ translated_text|escapejs }}')"
+        >
+            📋 複製
+        </button>
+        <span class="request-id text-secondary">
+            ID: {{ request_id }}
+        </span>
+    </div>
+</div>
+
+{% elif status == 'queued' %}
+<div class="translation-result queued" id="translation-result"
+     hx-get="/api/v1/translate/{{ request_id }}/status/"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML">
+    <div class="result-header">
+        <span class="status-badge status-queued">⏳ 排隊中</span>
+        <span class="queue-info">
+            位置：第 <strong>{{ queue_position }}</strong> 位
+        </span>
+    </div>
+    
+    <div class="result-content">
+        <div class="loading-indicator">
+            <span class="spinner"></span>
+            <span>系統繁忙，您的請求已加入佇列</span>
+        </div>
+        <p class="text-secondary">
+            預估等待時間：{{ estimated_wait }}秒
+        </p>
+    </div>
+</div>
+
+{% elif status == 'processing' %}
+<div class="translation-result processing" id="translation-result"
+     hx-get="/api/v1/translate/{{ request_id }}/status/"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML">
+    <div class="result-header">
+        <span class="status-badge status-processing">🔄 處理中</span>
+    </div>
+    
+    <div class="result-content">
+        <div class="loading-indicator">
+            <span class="spinner"></span>
+            <span>正在翻譯您的文字...</span>
+        </div>
+    </div>
+</div>
+
+{% elif status == 'error' %}
+<div class="translation-result error" id="translation-result">
+    <div class="result-header">
+        <span class="status-badge status-error">✗ 錯誤</span>
+        <span class="error-code">{{ error_code }}</span>
+    </div>
+    
+    <div class="result-content">
+        <p class="error-message">{{ error_message }}</p>
+        {% if error_details %}
+        <details class="error-details">
+            <summary>詳細資訊</summary>
+            <pre>{{ error_details }}</pre>
+        </details>
+        {% endif %}
+    </div>
+    
+    <div class="result-actions">
+        <button 
+            type="button" 
+            class="btn btn-primary btn-sm"
+            onclick="retryTranslation()"
+        >
+            🔄 重試
+        </button>
+    </div>
+</div>
+
+{% else %}
+<div class="translation-result empty" id="translation-result">
+    <p class="placeholder-text">翻譯結果將顯示在這裡...</p>
+</div>
+{% endif %}
+
+<style>
+.translation-result {
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    padding: 16px;
+    background-color: var(--surface-color, #ffffff);
+}
+
+.translation-result.success {
+    border-color: var(--success-color, #28a745);
+}
+
+.translation-result.error {
+    border-color: var(--error-color, #dc3545);
+    background-color: #fff8f8;
+}
+
+.translation-result.queued,
+.translation-result.processing {
+    border-color: var(--warning-color, #ffc107);
+    background-color: #fffdf5;
+}
+
+.result-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-completed {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-queued {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-processing {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.status-error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.result-content {
+    margin: 12px 0;
+}
+
+.translated-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+.result-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.error-message {
+    color: var(--error-color, #dc3545);
+    font-weight: 500;
+}
+
+.error-details {
+    margin-top: 8px;
+}
+
+.error-details summary {
+    cursor: pointer;
+    color: var(--text-secondary, #666);
+}
+
+.error-details pre {
+    margin-top: 8px;
+    padding: 12px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    overflow-x: auto;
+}
+
+.placeholder-text {
+    color: var(--text-secondary, #999);
+    text-align: center;
+    padding: 24px;
+}
+
+.detected-info {
+    font-size: 0.875rem;
+    color: var(--text-secondary, #666);
+}
+
+.confidence {
+    opacity: 0.8;
+}
+
+.request-id {
+    font-size: 0.75rem;
+}
+</style>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // 顯示成功提示
+        showToast('已複製到剪貼簿！', 'success');
+    }).catch(function(err) {
+        console.error('複製失敗:', err);
+        showToast('複製失敗，請手動選取複製', 'error');
+    });
+}
+
+function retryTranslation() {
+    // 觸發重新翻譯
+    if (typeof Alpine !== 'undefined') {
+        const app = document.querySelector('[x-data]');
+        if (app && app.__x) {
+            app.__x.$data.translate();
+        }
+    }
+}
+
+function showToast(message, type) {
+    // 簡單的提示訊息
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 24px;
+        border-radius: 8px;
+        color: white;
+        z-index: 9999;
+        animation: fadeIn 0.3s ease;
+        background-color: ${type === 'success' ? '#28a745' : '#dc3545'};
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(function() {
+        toast.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(function() {
+            toast.remove();
+        }, 300);
+    }, 2000);
+}
+</script>

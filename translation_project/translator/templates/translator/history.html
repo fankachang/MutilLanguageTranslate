@@ -1,0 +1,176 @@
+{% extends 'translator/base.html' %}
+
+{% block title %}歷史記錄 - 多國語言翻譯系統{% endblock %}
+
+{% block content %}
+<div x-data="historyApp()">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">翻譯歷史記錄</h2>
+            <button 
+                type="button" 
+                class="btn btn-secondary btn-sm"
+                @click="clearHistory"
+                x-show="historyItems.length > 0"
+            >
+                🗑️ 清除全部
+            </button>
+        </div>
+        
+        <!-- 無記錄提示 -->
+        <div x-show="historyItems.length === 0" class="empty-state">
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                <div style="font-size: 3rem; margin-bottom: 16px;">📝</div>
+                <p>尚無翻譯記錄</p>
+                <p style="font-size: 0.875rem;">您的翻譯記錄將在此處顯示（儲存於瀏覽器 session 中）</p>
+                <a href="{% url 'index' %}" class="btn btn-primary" style="margin-top: 16px;">
+                    開始翻譯
+                </a>
+            </div>
+        </div>
+        
+        <!-- 歷史記錄列表 -->
+        <div x-show="historyItems.length > 0" class="history-list">
+            <template x-for="item in historyItems" :key="item.id">
+                <div class="history-item card" style="margin-bottom: 12px;">
+                    <div class="history-item-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div class="history-meta">
+                            <span class="language-badge" x-text="getLanguageName(item.sourceLang)"></span>
+                            <span style="margin: 0 8px;">→</span>
+                            <span class="language-badge" x-text="getLanguageName(item.targetLang)"></span>
+                            <span 
+                                x-show="item.detectedLang" 
+                                class="detected-badge"
+                                style="margin-left: 8px; font-size: 0.75rem; color: var(--text-secondary);"
+                            >
+                                (偵測: <span x-text="getLanguageName(item.detectedLang)"></span>)
+                            </span>
+                        </div>
+                        <div class="history-time" style="font-size: 0.75rem; color: var(--text-secondary);">
+                            <span x-text="formatTime(item.timestamp)"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="history-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="original-text">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">原文</div>
+                            <div 
+                                style="background-color: var(--bg-secondary); padding: 12px; border-radius: 6px; max-height: 100px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;"
+                                x-text="item.fullOriginalText"
+                            ></div>
+                        </div>
+                        <div class="translated-text">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">譯文</div>
+                            <div 
+                                style="background-color: var(--bg-secondary); padding: 12px; border-radius: 6px; max-height: 100px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;"
+                                x-text="item.fullTranslatedText"
+                            ></div>
+                        </div>
+                    </div>
+                    
+                    <div class="history-actions" style="margin-top: 12px; display: flex; gap: 8px;">
+                        <button 
+                            type="button" 
+                            class="btn btn-secondary btn-sm"
+                            @click="copyText(item.fullTranslatedText)"
+                        >
+                            📋 複製譯文
+                        </button>
+                        <button 
+                            type="button" 
+                            class="btn btn-secondary btn-sm"
+                            @click="reuseTranslation(item)"
+                        >
+                            🔄 再次翻譯
+                        </button>
+                        <button 
+                            type="button" 
+                            class="btn btn-secondary btn-sm"
+                            @click="deleteItem(item.id)"
+                            style="margin-left: auto;"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function historyApp() {
+    return {
+        historyItems: [],
+        
+        languageNames: {
+            'zh-TW': '繁體中文',
+            'zh-CN': '簡體中文',
+            'en': '英文',
+            'ja': '日文',
+            'ko': '韓文',
+            'fr': '法文',
+            'de': '德文',
+            'es': '西班牙文',
+            'auto': '自動偵測',
+        },
+        
+        init() {
+            this.loadHistory();
+        },
+        
+        loadHistory() {
+            try {
+                this.historyItems = JSON.parse(sessionStorage.getItem('translationHistory') || '[]');
+            } catch (e) {
+                console.error('載入歷史記錄失敗:', e);
+                this.historyItems = [];
+            }
+        },
+        
+        getLanguageName(code) {
+            return this.languageNames[code] || code;
+        },
+        
+        formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('zh-TW', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        },
+        
+        async copyText(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                alert('已複製到剪貼簿！');
+            } catch (e) {
+                console.error('複製失敗:', e);
+            }
+        },
+        
+        reuseTranslation(item) {
+            // 儲存到 session 並跳轉
+            sessionStorage.setItem('reuseTranslation', JSON.stringify(item));
+            window.location.href = '{% url "index" %}';
+        },
+        
+        deleteItem(id) {
+            this.historyItems = this.historyItems.filter(item => item.id !== id);
+            sessionStorage.setItem('translationHistory', JSON.stringify(this.historyItems));
+        },
+        
+        clearHistory() {
+            if (confirm('確定要清除所有歷史記錄嗎？')) {
+                this.historyItems = [];
+                sessionStorage.removeItem('translationHistory');
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

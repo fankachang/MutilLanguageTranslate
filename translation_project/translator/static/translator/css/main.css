@@ -221,3 +221,442 @@ select.form-control {
         width: 100%;
     }
 }
+
+/* ===== 進階載入動畫 ===== */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease;
+}
+
+.slide-up {
+    animation: slideUp 0.3s ease;
+}
+
+/* ===== 狀態徽章 ===== */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-completed {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-queued {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-processing {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.status-error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.dark .status-completed {
+    background-color: #1a472a;
+    color: #90ee90;
+}
+
+.dark .status-queued {
+    background-color: #4a3f00;
+    color: #ffd700;
+}
+
+.dark .status-processing {
+    background-color: #002952;
+    color: #87ceeb;
+}
+
+.dark .status-error {
+    background-color: #4a1a1a;
+    color: #ff6b6b;
+}
+
+/* ===== 進度條 ===== */
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background-color: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background-color: var(--accent-color);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+/* ===== 浮動提示 (Toast) ===== */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideUp 0.3s ease;
+}
+
+.toast-success {
+    background-color: var(--success-color);
+}
+
+.toast-error {
+    background-color: var(--error-color);
+}
+
+.toast-warning {
+    background-color: var(--warning-color);
+    color: #333;
+}
+
+.toast-info {
+    background-color: var(--accent-color);
+}
+
+/* ===== 骨架載入 ===== */
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-secondary) 25%,
+        var(--bg-primary) 50%,
+        var(--bg-secondary) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.skeleton-text {
+    height: 1em;
+    margin-bottom: 0.5em;
+}
+
+.skeleton-text:last-child {
+    width: 80%;
+}
+
+/* ===== 翻譯區塊增強樣式 ===== */
+.translation-panel {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.translation-panel:focus-within {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.translation-panel textarea {
+    border: none;
+    resize: none;
+    background: transparent;
+}
+
+.translation-panel textarea:focus {
+    box-shadow: none;
+}
+
+/* ===== 語言選擇器增強 ===== */
+.language-selector select {
+    padding: 8px 32px 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--bg-primary);
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+
+.language-selector select:hover {
+    border-color: var(--accent-color);
+}
+
+.language-selector select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+/* ===== 交換按鈕增強 ===== */
+.swap-button {
+    font-size: 1.25rem;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.swap-button:hover:not(:disabled) {
+    transform: scale(1.1);
+    background-color: var(--bg-secondary);
+}
+
+.swap-button:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.swap-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ===== 信心度指示器 ===== */
+.confidence-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.confidence-bar {
+    width: 40px;
+    height: 4px;
+    background-color: var(--bg-secondary);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.confidence-bar-fill {
+    height: 100%;
+    background-color: var(--success-color);
+    transition: width 0.3s;
+}
+
+.confidence-high .confidence-bar-fill {
+    background-color: var(--success-color);
+}
+
+.confidence-medium .confidence-bar-fill {
+    background-color: var(--warning-color);
+}
+
+.confidence-low .confidence-bar-fill {
+    background-color: var(--error-color);
+}
+
+/* ===== 訊息樣式 ===== */
+.message {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.message-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.message-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+.message-info {
+    background-color: #cce5ff;
+    color: #004085;
+    border: 1px solid #b8daff;
+}
+
+.dark .message-success {
+    background-color: #1a472a;
+    color: #90ee90;
+    border-color: #2d6a3e;
+}
+
+.dark .message-error {
+    background-color: #4a1a1a;
+    color: #ff6b6b;
+    border-color: #6a2e2e;
+}
+
+.dark .message-warning {
+    background-color: #4a3f00;
+    color: #ffd700;
+    border-color: #6a5a00;
+}
+
+.dark .message-info {
+    background-color: #002952;
+    color: #87ceeb;
+    border-color: #004085;
+}
+
+/* ===== 平板和桌面樣式優化 ===== */
+@media (min-width: 769px) {
+    .translation-container {
+        gap: 24px;
+    }
+    
+    .translation-panel {
+        min-height: 300px;
+    }
+    
+    .translation-panel textarea {
+        min-height: 250px;
+    }
+}
+
+@media (min-width: 1200px) {
+    .translation-container {
+        gap: 32px;
+    }
+    
+    .translation-panel {
+        padding: 20px;
+    }
+}
+
+/* ===== 無障礙增強 ===== */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* 高對比模式 */
+@media (prefers-contrast: high) {
+    :root {
+        --border-color: #000;
+        --text-secondary: #333;
+    }
+    
+    .btn {
+        border: 2px solid currentColor;
+    }
+    
+    .form-control {
+        border-width: 2px;
+    }
+}
+
+/* 焦點可見性增強 */
+:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+/* ===== 列印樣式 ===== */
+@media print {
+    .header,
+    .footer,
+    .action-buttons,
+    .copy-button,
+    .swap-button {
+        display: none !important;
+    }
+    
+    .translation-container {
+        display: block;
+    }
+    
+    .translation-panel {
+        page-break-inside: avoid;
+        border: 1px solid #ccc;
+        margin-bottom: 20px;
+    }
+}

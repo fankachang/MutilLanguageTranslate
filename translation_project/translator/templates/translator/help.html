@@ -1,0 +1,171 @@
+{% extends 'translator/base.html' %}
+
+{% block title %}使用說明 - 多國語言翻譯系統{% endblock %}
+
+{% block content %}
+<div class="help-page">
+    <div class="card">
+        <h1 style="font-size: 1.5rem; margin-bottom: 20px;">使用說明</h1>
+        
+        <!-- 快速開始 -->
+        <section style="margin-bottom: 32px;">
+            <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; color: var(--accent-color);">🚀 快速開始</h2>
+            <ol style="padding-left: 20px; line-height: 1.8;">
+                <li>在左側輸入框中輸入要翻譯的文字</li>
+                <li>選擇來源語言（或使用「自動偵測」）</li>
+                <li>選擇目標語言</li>
+                <li>點擊「翻譯」按鈕或按 <kbd>Ctrl + Enter</kbd></li>
+                <li>翻譯結果將顯示在右側</li>
+            </ol>
+        </section>
+        
+        <!-- 功能說明 -->
+        <section style="margin-bottom: 32px;">
+            <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; color: var(--accent-color);">📝 功能說明</h2>
+            
+            <div style="display: grid; gap: 16px;">
+                <div class="feature-item" style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;">
+                    <h3 style="font-weight: 600; margin-bottom: 8px;">自動語言偵測</h3>
+                    <p style="color: var(--text-secondary);">
+                        選擇「自動偵測」時，系統會自動辨識您輸入文字的語言。
+                        偵測結果和信心度會顯示在輸入框下方。
+                    </p>
+                </div>
+                
+                <div class="feature-item" style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;">
+                    <h3 style="font-weight: 600; margin-bottom: 8px;">支援語言</h3>
+                    <p style="color: var(--text-secondary);">
+                        系統支援以下語言：繁體中文、簡體中文、英文、日文、韓文、法文、德文、西班牙文。
+                        未來會持續擴充支援語言。
+                    </p>
+                </div>
+                
+                <div class="feature-item" style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;">
+                    <h3 style="font-weight: 600; margin-bottom: 8px;">字數限制</h3>
+                    <p style="color: var(--text-secondary);">
+                        單次翻譯最多可輸入 10,000 字元。超過 8,000 字元時會顯示警告。
+                        如有更大量翻譯需求，建議分段處理。
+                    </p>
+                </div>
+                
+                <div class="feature-item" style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;">
+                    <h3 style="font-weight: 600; margin-bottom: 8px;">翻譯品質模式</h3>
+                    <p style="color: var(--text-secondary);">
+                        在「設定」頁面可選擇翻譯品質：
+                    </p>
+                    <ul style="margin-top: 8px; padding-left: 20px; color: var(--text-secondary);">
+                        <li><strong>快速模式</strong>：回應速度較快，適合簡短文字</li>
+                        <li><strong>標準模式</strong>：平衡速度與品質（建議）</li>
+                        <li><strong>高品質模式</strong>：更精確的翻譯，處理時間較長</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-item" style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;">
+                    <h3 style="font-weight: 600; margin-bottom: 8px;">歷史記錄</h3>
+                    <p style="color: var(--text-secondary);">
+                        翻譯記錄會自動儲存在瀏覽器中（最多 20 筆）。
+                        關閉瀏覽器或清除 session 後記錄會消失。
+                        可在「歷史記錄」頁面查看、複製或重新使用。
+                    </p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 常見問題 -->
+        <section style="margin-bottom: 32px;">
+            <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; color: var(--accent-color);">❓ 常見問題</h2>
+            
+            <div style="display: grid; gap: 12px;">
+                <details style="padding: 16px; background: var(--bg-secondary); border-radius: 8px; cursor: pointer;">
+                    <summary style="font-weight: 600;">翻譯速度很慢怎麼辦？</summary>
+                    <p style="margin-top: 12px; color: var(--text-secondary);">
+                        翻譯速度取決於文字長度和系統負載。如果系統繁忙，您的請求會進入排隊。
+                        可以嘗試：
+                        <ul style="padding-left: 20px; margin-top: 8px;">
+                            <li>使用「快速模式」</li>
+                            <li>縮短翻譯文字長度</li>
+                            <li>避開尖峰使用時段</li>
+                        </ul>
+                    </p>
+                </details>
+                
+                <details style="padding: 16px; background: var(--bg-secondary); border-radius: 8px; cursor: pointer;">
+                    <summary style="font-weight: 600;">翻譯結果不準確？</summary>
+                    <p style="margin-top: 12px; color: var(--text-secondary);">
+                        AI 翻譯可能在某些情境下不夠準確，特別是專業術語或特殊用法。建議：
+                        <ul style="padding-left: 20px; margin-top: 8px;">
+                            <li>使用「高品質模式」</li>
+                            <li>提供更多上下文</li>
+                            <li>對重要文件進行人工審校</li>
+                        </ul>
+                    </p>
+                </details>
+                
+                <details style="padding: 16px; background: var(--bg-secondary); border-radius: 8px; cursor: pointer;">
+                    <summary style="font-weight: 600;">語言偵測錯誤？</summary>
+                    <p style="margin-top: 12px; color: var(--text-secondary);">
+                        當文字過短或包含多種語言時，自動偵測可能不準確。
+                        建議直接選擇正確的來源語言以獲得最佳翻譯結果。
+                    </p>
+                </details>
+                
+                <details style="padding: 16px; background: var(--bg-secondary); border-radius: 8px; cursor: pointer;">
+                    <summary style="font-weight: 600;">無法連線到系統？</summary>
+                    <p style="margin-top: 12px; color: var(--text-secondary);">
+                        請確認：
+                        <ul style="padding-left: 20px; margin-top: 8px;">
+                            <li>您的網路連線正常</li>
+                            <li>您的 IP 位址在允許清單中（內部系統限制）</li>
+                            <li>系統目前沒有在維護中</li>
+                        </ul>
+                        如持續無法連線，請聯繫系統管理員。
+                    </p>
+                </details>
+            </div>
+        </section>
+        
+        <!-- 技術資訊 -->
+        <section>
+            <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; color: var(--accent-color);">🔧 技術資訊</h2>
+            <div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;">
+                <p style="color: var(--text-secondary); line-height: 1.8;">
+                    本系統使用 <strong>TAIDE-LX-7B</strong> 大型語言模型進行翻譯，
+                    這是一個針對繁體中文優化的 AI 模型，能夠提供自然流暢的翻譯品質。
+                </p>
+                <p style="color: var(--text-secondary); margin-top: 12px;">
+                    所有翻譯皆在本地伺服器處理，資料不會傳送到外部服務。
+                </p>
+            </div>
+        </section>
+    </div>
+</div>
+
+<style>
+details > summary {
+    list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+    display: none;
+}
+
+details > summary::before {
+    content: '▶ ';
+    display: inline-block;
+    transition: transform 0.2s;
+}
+
+details[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+kbd {
+    background: var(--bg-secondary);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.875rem;
+    border: 1px solid var(--border-color);
+}
+</style>
+{% endblock %}

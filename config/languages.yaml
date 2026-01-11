@@ -1,0 +1,63 @@
+# 語言配置檔案
+# 定義系統支援的翻譯語言
+
+# 預設設定
+defaults:
+  source_language: "auto"
+  target_language: "zh-TW"
+
+# 支援的語言清單
+languages:
+  - code: "zh-TW"
+    name: "繁體中文"
+    name_en: "Traditional Chinese"
+    is_enabled: true
+    sort_order: 1
+  
+  - code: "zh-CN"
+    name: "簡體中文"
+    name_en: "Simplified Chinese"
+    is_enabled: true
+    sort_order: 2
+  
+  - code: "en"
+    name: "英文"
+    name_en: "English"
+    is_enabled: true
+    sort_order: 3
+  
+  - code: "ja"
+    name: "日文"
+    name_en: "Japanese"
+    is_enabled: true
+    sort_order: 4
+  
+  - code: "ko"
+    name: "韓文"
+    name_en: "Korean"
+    is_enabled: true
+    sort_order: 5
+  
+  - code: "fr"
+    name: "法文"
+    name_en: "French"
+    is_enabled: true
+    sort_order: 6
+  
+  - code: "de"
+    name: "德文"
+    name_en: "German"
+    is_enabled: true
+    sort_order: 7
+  
+  - code: "es"
+    name: "西班牙文"
+    name_en: "Spanish"
+    is_enabled: true
+    sort_order: 8
+
+# 自動偵測選項
+auto_detect:
+  code: "auto"
+  name: "自動偵測"
+  name_en: "Auto Detect"

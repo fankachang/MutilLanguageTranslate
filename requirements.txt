@@ -1,0 +1,22 @@
+# 多國語言翻譯系統依賴清單
+# Python 版本: 3.11+
+
+# Web 框架
+Django>=4.2
+uvicorn>=0.25.0
+
+# 模型推論
+transformers>=4.36.0
+torch>=2.1.0
+accelerate>=0.25.0
+
+# 配置管理
+PyYAML>=6.0.1
+
+# 系統監控
+psutil>=5.9.0
+
+# 測試 (可選)
+pytest>=7.4.0
+pytest-django>=4.7.0
+pytest-asyncio>=0.23.0

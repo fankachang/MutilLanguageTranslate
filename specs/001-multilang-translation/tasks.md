@@ -27,12 +27,12 @@
 
 **Purpose**: 建立專案基礎結構與開發環境
 
-- [ ] T001 建立 Django 專案結構 `translation_project/` 與應用程式 `translator/`
-- [ ] T002 [P] 建立 requirements.txt 依賴清單（Django 4.2+, uvicorn, transformers, torch, PyYAML, psutil）
-- [ ] T003 [P] 建立配置目錄 `config/` 與範本檔案（app_config.yaml.example, model_config.yaml.example, languages.yaml）
-- [ ] T004 [P] 建立日誌目錄 `logs/.gitkeep` 與測試目錄結構 `tests/unit/`, `tests/integration/`, `tests/performance/`
-- [ ] T005 [P] 設定 Django settings.py（ASGI、Cache Framework、靜態檔案、日誌配置）
-- [ ] T006 [P] 下載並設定 HTMX、Alpine.js 靜態檔案至 `translator/static/translator/js/`
+- [X] T001 建立 Django 專案結構 `translation_project/` 與應用程式 `translator/`
+- [X] T002 [P] 建立 requirements.txt 依賴清單（Django 4.2+, uvicorn, transformers, torch, PyYAML, psutil）
+- [X] T003 [P] 建立配置目錄 `config/` 與範本檔案（app_config.yaml.example, model_config.yaml.example, languages.yaml）
+- [X] T004 [P] 建立日誌目錄 `logs/.gitkeep` 與測試目錄結構 `tests/unit/`, `tests/integration/`, `tests/performance/`
+- [X] T005 [P] 設定 Django settings.py（ASGI、Cache Framework、靜態檔案、日誌配置）
+- [X] T006 [P] 下載並設定 HTMX、Alpine.js 靜態檔案至 `translator/static/translator/js/`
 
 ---
 

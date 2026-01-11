@@ -1,0 +1,55 @@
+# 模型配置範本
+# 複製為 model_config.yaml 並修改相應設定
+
+# 模型路徑設定
+model:
+  # 模型名稱
+  name: "TAIDE-LX-7B"
+  # 模型路徑（相對於專案根目錄）
+  path: "models/models--taide--TAIDE-LX-7B/snapshots/099c425ede93588d7df6e5279bd6b03f1371c979"
+  # 強制使用 CPU（即使有 GPU 可用）
+  force_cpu: false
+  # GPU 記憶體上限 (GiB)，null 表示無限制
+  max_gpu_memory: null
+
+# 生成參數設定
+generation:
+  # 快速模式參數
+  fast:
+    temperature: 0.7
+    top_p: 0.9
+    num_beams: 1
+    max_new_tokens: 512
+  
+  # 標準模式參數
+  standard:
+    temperature: 0.5
+    top_p: 0.85
+    num_beams: 2
+    max_new_tokens: 1024
+  
+  # 高品質模式參數
+  high:
+    temperature: 0.3
+    top_p: 0.8
+    num_beams: 4
+    max_new_tokens: 2048
+
+# Prompt 範本
+prompts:
+  # 翻譯 Prompt 範本
+  translation: |
+    你是一個專業的翻譯助手。請將以下{source_language}文字翻譯成{target_language}，保持原文的格式和換行。只輸出翻譯結果，不要加入任何解釋或額外內容。
+
+    原文：
+    {text}
+
+    翻譯：
+  
+  # 語言偵測 Prompt 範本
+  language_detection: |
+    請識別以下文字的語言，只回答語言代碼（zh-TW, zh-CN, en, ja, ko, fr, de, es 其中之一）和信心分數（0.0-1.0），格式為「語言代碼:信心分數」。
+
+    文字：{text}
+
+    答案：

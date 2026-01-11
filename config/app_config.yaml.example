@@ -1,0 +1,45 @@
+# 應用程式配置範本
+# 複製為 app_config.yaml 並修改相應設定
+
+# 伺服器設定
+server:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+
+# 翻譯設定
+translation:
+  # 翻譯逾時（秒）
+  timeout: 120
+  # 最大文字長度
+  max_text_length: 10000
+  # 預設品質模式 (fast/standard/high)
+  default_quality: "standard"
+
+# 並發控制
+concurrency:
+  # 最大並發請求數
+  max_concurrent: 100
+  # 最大等待佇列長度
+  max_queue_size: 100
+  # 最大總請求數 (處理中 + 等待中)
+  max_total_requests: 200
+
+# 日誌設定
+logging:
+  # 日誌等級 (DEBUG/INFO/WARNING/ERROR)
+  level: "INFO"
+  # 日誌保留天數
+  retention_days: 30
+  # 日誌檔案最大大小 (MB)
+  max_file_size_mb: 50
+
+# IP 白名單設定 (管理頁面存取)
+admin_access:
+  # 允許存取管理頁面的 IP 範圍 (CIDR 格式)
+  allowed_ips:
+    - "127.0.0.1/32"
+    - "192.168.0.0/16"
+    - "10.0.0.0/8"
+    - "10.1.1.0/24"
+    - "172.16.0.0/12"

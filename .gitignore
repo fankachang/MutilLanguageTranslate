@@ -1,2 +1,53 @@
+# macOS
 .DS_Store
+
+# 模型檔案（太大不納入版控）
 models/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Django
+*.log
+db.sqlite3
+staticfiles/
+
+# 配置檔案（可能包含敏感資訊）
+config/app_config.yaml
+config/model_config.yaml
+!config/*.example
+
+# IDE
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+
+# 日誌檔案
+logs/*.log
+!logs/.gitkeep
+
+# 環境變數
+.env
+.env.local
+.env.*.local
+
+# 測試與覆蓋率
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# 臨時檔案
+*.tmp
+*.temp

@@ -19,7 +19,7 @@
 **Project Type**: web (Django 單體應用)  
 **Performance Goals**: GPU 模式 2-3 秒/千字、CPU 模式 8-10 秒/千字 (95th percentile)、100 並發使用者  
 **Constraints**: 完全離線運作、翻譯逾時 120 秒、最大 10,000 字元、記憶體內資料不持久化  
-**Scale/Scope**: 100 並發使用者、200 最大佇列請求、24 小時統計視窗
+**Scale/Scope**: 100 並發使用者、100 最大等待佇列、200 最大總請求（含處理中+等待）、24 小時統計視窗
 
 ## Constitution Check
 
@@ -56,9 +56,9 @@
 - ✅ IP 白名單透過設定檔配置
 - ✅ 逾時閾值、日誌保留期限可配置
 
-### VII. API-First Design ✅ 待執行
-- 📋 需定義 REST API 契約（contracts/）
-- 📋 需定義錯誤碼標準
+### VII. API-First Design ✅ 通過
+- ✅ 已定義 REST API 契約（contracts/api-contract.md）
+- ✅ 已定義 OpenAPI 規格與錯誤碼（contracts/openapi.yaml）
 
 ### 閘門狀態：✅ 通過
 - 所有核心原則完全符合 Constitution 要求

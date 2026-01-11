@@ -9,9 +9,9 @@ info:
     name: 翻譯系統開發團隊
 
 servers:
-  - url: http://localhost:8000/api/v1
+  - url: http://localhost:8000
     description: 開發環境
-  - url: http://{internal-host}:8000/api/v1
+  - url: http://{internal-host}:8000
     description: 內網環境
 
 tags:
@@ -25,7 +25,7 @@ tags:
     description: 健康檢查 API
 
 paths:
-  /translate/:
+  /api/v1/translate/:
     post:
       tags:
         - Translation
@@ -70,7 +70,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /translate/{request_id}/status/:
+  /api/v1/translate/{request_id}/status/:
     get:
       tags:
         - Translation
@@ -97,7 +97,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /languages/:
+  /api/v1/languages/:
     get:
       tags:
         - Languages
@@ -111,7 +111,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/LanguagesResponse"
 
-  /admin/status/:
+  /api/v1/admin/status/:
     get:
       tags:
         - Admin
@@ -132,7 +132,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /admin/statistics/:
+  /api/v1/admin/statistics/:
     get:
       tags:
         - Admin
@@ -153,7 +153,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /health/:
+  /api/health/:
     get:
       tags:
         - Health

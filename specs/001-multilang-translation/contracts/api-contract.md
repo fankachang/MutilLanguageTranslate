@@ -12,7 +12,8 @@
 
 ## 基礎資訊
 
-- **Base URL**: `http://{host}:8000/api/v1`
+- **Base URL**: `http://{host}:8000`
+- **API Path**: v1 API 使用 `/api/v1/`；健康檢查使用 `/api/health/`
 - **Content-Type**: `application/json`
 - **字元編碼**: UTF-8
 

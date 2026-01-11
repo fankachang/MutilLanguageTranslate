@@ -1,6 +1,6 @@
 # Feature Specification: 多國語言翻譯系統
 
-**Feature Branch**: `002-multilang-translate`  
+**Feature Branch**: `001-multilang-translation`  
 **Created**: 2026-01-11  
 **Status**: Draft  
 **Input**: 開發一個內網多國語言翻譯系統，供員工快速進行文字翻譯，支援多種語言互譯。系統部署於內網環境，員工透過瀏覽器訪問使用，無需帳號登入。

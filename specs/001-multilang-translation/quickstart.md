@@ -107,9 +107,18 @@ psutil>=5.9.0
 
 複製範本並修改配置：
 
+若專案提供 `.example` 範本檔案，可先複製後再修改；若沒有範本，請直接建立 `config/app_config.yaml` 與 `config/model_config.yaml`。
+
 ```bash
+# Linux/Mac（或 Git Bash）
 cp config/app_config.yaml.example config/app_config.yaml
 cp config/model_config.yaml.example config/model_config.yaml
+```
+
+```powershell
+# Windows PowerShell
+Copy-Item config/app_config.yaml.example config/app_config.yaml
+Copy-Item config/model_config.yaml.example config/model_config.yaml
 ```
 
 **config/app_config.yaml 關鍵配置**：

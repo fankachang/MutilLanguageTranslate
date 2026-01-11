@@ -1,0 +1,447 @@
+openapi: "3.0.3"
+info:
+  title: 多國語言翻譯系統 API
+  description: |
+    內網多國語言翻譯系統 REST API 規格。
+    基於 Django 4.2+ 實現，支援 8 種語言互譯、自動語言偵測、系統監控等功能。
+  version: "1.0.0"
+  contact:
+    name: 翻譯系統開發團隊
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: 開發環境
+  - url: http://{internal-host}:8000/api/v1
+    description: 內網環境
+
+tags:
+  - name: Translation
+    description: 翻譯相關 API
+  - name: Languages
+    description: 語言相關 API
+  - name: Admin
+    description: 管理監控 API（需 IP 白名單）
+  - name: Health
+    description: 健康檢查 API
+
+paths:
+  /translate/:
+    post:
+      tags:
+        - Translation
+      summary: 執行文字翻譯
+      description: 將輸入文字翻譯為指定目標語言
+      operationId: translateText
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranslationRequest"
+      responses:
+        "200":
+          description: 翻譯完成
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranslationResponse"
+        "202":
+          description: 請求已排隊等待處理
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueuedResponse"
+        "400":
+          description: 請求驗證失敗
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: 服務暫時無法使用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "504":
+          description: 翻譯逾時
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /translate/{request_id}/status/:
+    get:
+      tags:
+        - Translation
+      summary: 查詢翻譯請求狀態
+      operationId: getTranslationStatus
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 請求狀態
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "404":
+          description: 請求不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /languages/:
+    get:
+      tags:
+        - Languages
+      summary: 取得支援的語言清單
+      operationId: getLanguages
+      responses:
+        "200":
+          description: 語言清單
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LanguagesResponse"
+
+  /admin/status/:
+    get:
+      tags:
+        - Admin
+      summary: 取得系統狀態
+      description: 需要 IP 白名單授權
+      operationId: getSystemStatus
+      responses:
+        "200":
+          description: 系統狀態
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatusResponse"
+        "403":
+          description: IP 不在白名單中
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/statistics/:
+    get:
+      tags:
+        - Admin
+      summary: 取得翻譯統計
+      description: 近 24 小時翻譯統計資料，需要 IP 白名單授權
+      operationId: getStatistics
+      responses:
+        "200":
+          description: 統計資料
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatisticsResponse"
+        "403":
+          description: IP 不在白名單中
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /health/:
+    get:
+      tags:
+        - Health
+      summary: 健康檢查
+      operationId: healthCheck
+      responses:
+        "200":
+          description: 系統健康
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: 系統不健康
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+components:
+  schemas:
+    TranslationRequest:
+      type: object
+      required:
+        - text
+        - target_language
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: 待翻譯文字
+          example: "Hello, how are you today?"
+        source_language:
+          type: string
+          default: "auto"
+          description: 來源語言代碼或 "auto" 自動偵測
+          example: "en"
+        target_language:
+          type: string
+          description: 目標語言代碼
+          example: "zh-TW"
+        quality:
+          type: string
+          enum: [fast, standard, high]
+          default: standard
+          description: 翻譯品質模式
+
+    TranslationResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [completed]
+        translated_text:
+          type: string
+          description: 翻譯結果
+        detected_language:
+          type: string
+          nullable: true
+          description: 偵測到的語言（自動偵測時）
+        confidence_score:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0
+          maximum: 1
+          description: 語言偵測信心分數
+        processing_time_ms:
+          type: integer
+          description: 處理時間（毫秒）
+        execution_mode:
+          type: string
+          enum: [gpu, cpu]
+
+    QueuedResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued]
+        queue_position:
+          type: integer
+          description: 佇列位置
+        estimated_wait_seconds:
+          type: integer
+          description: 預估等待秒數
+
+    StatusResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, processing, completed, failed, timeout]
+        queue_position:
+          type: integer
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    LanguagesResponse:
+      type: object
+      properties:
+        languages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Language"
+        default_source_language:
+          type: string
+          example: "auto"
+        default_target_language:
+          type: string
+          example: "zh-TW"
+
+    Language:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "zh-TW"
+        name:
+          type: string
+          example: "繁體中文"
+        name_en:
+          type: string
+          example: "Traditional Chinese"
+        is_enabled:
+          type: boolean
+
+    SystemStatusResponse:
+      type: object
+      properties:
+        system:
+          type: object
+          properties:
+            is_running:
+              type: boolean
+            uptime:
+              type: string
+              example: "02:15:30"
+            last_updated:
+              type: string
+              format: date-time
+        model:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [not_loaded, loading, loaded, error]
+            name:
+              type: string
+              example: "TAIDE-LX-7B"
+            execution_mode:
+              type: string
+              enum: [gpu, cpu]
+        resources:
+          type: object
+          properties:
+            memory_usage_mb:
+              type: number
+            cpu_usage_percent:
+              type: number
+            gpu_memory_usage_mb:
+              type: number
+              nullable: true
+        queue:
+          type: object
+          properties:
+            active_requests:
+              type: integer
+            queued_requests:
+              type: integer
+            max_concurrency:
+              type: integer
+            max_queue_size:
+              type: integer
+
+    StatisticsResponse:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+        summary:
+          type: object
+          properties:
+            total_requests:
+              type: integer
+            successful_requests:
+              type: integer
+            failed_requests:
+              type: integer
+            success_rate:
+              type: number
+            average_processing_time_ms:
+              type: number
+        hourly_breakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              hour:
+                type: string
+                format: date-time
+              requests:
+                type: integer
+              success_rate:
+                type: number
+              avg_processing_time_ms:
+                type: number
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        checks:
+          type: object
+          properties:
+            api:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, unhealthy]
+                response_time_ms:
+                  type: integer
+            translation_model:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, unhealthy]
+                model_name:
+                  type: string
+                execution_mode:
+                  type: string
+                  enum: [gpu, cpu]
+                last_check_time:
+                  type: string
+                  format: date-time
+                error:
+                  type: string
+                  nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [failed]
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: 錯誤代碼
+              example: "VALIDATION_TEXT_TOO_LONG"
+            message:
+              type: string
+              description: 中文錯誤訊息
+              example: "文字長度超過 10,000 字元，請縮短後再試"

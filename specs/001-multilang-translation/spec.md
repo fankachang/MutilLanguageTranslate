@@ -129,9 +129,8 @@
 - Q: FR-045 健康檢查端點應該驗證哪些條件? → A: 驗證 API 服務可回應 + 翻譯模型已載入
 - Q: 日誌輸出的實現方式為何(檔案系統、串流、或集中式系統)? → A: 直接寫入檔案系統(logs/ 目錄),由應用程式自行管理日誌輪替
 - Q: 系統架構模式為何(前後端分離、單體、或微服務)? → A: 單體應用程式(後端 API + 靜態前端打包於同一服務)
-- Q: 技術棧選擇為何? → A: .NET 10 + ASP.NET Core(後端) + Blazor Server(前端) + Python 微服務(模型服務)
-- Q: 記憶體快取與統計資料的實現機制為何? → A: 使用內建的 IMemoryCache 搭配 ConcurrentDictionary 實現滑動視窗
-- Q: .NET 主應用程式與 Python 模型服務的通訊協定為何? → A: HTTP REST API (JSON 格式)
+- Q: 技術棧選擇為何? → A: Python 3.11+ / Django 4.2+ (ASGI) 單體應用程式，前端使用 Django Templates + HTMX/Alpine.js
+- Q: 記憶體快取與統計資料的實現機制為何? → A: 使用 Django Cache Framework 搭配 threading.Lock 實現滑動視窗
 
 ## Requirements *(mandatory)*
 
@@ -181,12 +180,12 @@
 - **FR-031**: 系統必須在超過 100 個並發時將新請求放入等待佇列（上限 100）
 - **FR-032**: 系統必須在總請求數超過 200 時拒絕新請求並返回錯誤訊息
 - **FR-033**: 系統必須區分並顯示「等待中」與「處理中」狀態
-- **FR-034-補充**: 使用 .NET IMemoryCache 搭配 ConcurrentDictionary 實現執行緒安全的請求佇列與統計資料管理
+- **FR-034-補充**: 使用 Django Cache Framework 搭配 threading.Lock 實現執行緒安全的請求佇列與統計資料管理
 
 #### 系統監控
 - **FR-034**: 系統必須提供系統狀態監控頁面，僅限白名單 IP 存取（IP 範圍或清單可透過設定檔配置）
 - **FR-035**: 系統狀態頁面必須顯示：系統執行狀態、當前並發請求數、記憶體使用量、CPU 使用率、翻譯模型狀態
-- **FR-036**: 系統狀態頁面必須顯示近 24 小時的翻譯統計（請求數、成功率、平均處理時間）。統計資料使用 IMemoryCache 搭配 ConcurrentDictionary 實現記憶體內時間序列滑動視窗,每分鐘匯總一次
+- **FR-036**: 系統狀態頁面必須顯示近 24 小時的翻譯統計（請求數、成功率、平均處理時間）。統計資料使用 Django Cache Framework 實現記憶體內時間序列滑動視窗，每分鐘匯總一次
 
 #### 安全性
 - **FR-037**: 系統必須進行輸入清理以防止 XSS 攻擊
@@ -216,10 +215,10 @@
 - 系統部署於內網環境,所有使用者為公司內部員工
 - 無需使用者帳號驗證,直接開放使用
 - 翻譯模型使用現有的 TAIDE-LX-7B（路徑：models/models--taide--TAIDE-LX-7B）,架構設計保留後續擴充其他模型的彈性
-- 系統採用混合架構: .NET 10 + ASP.NET Core(後端業務邏輯與 API) + Blazor Server(前端互動介面) + Python 微服務(模型推論服務)
-- .NET 主應用程式透過 HTTP REST API (JSON 格式) 與 Python 模型服務通訊,介面簡單清晰便於維護
-- 主應用程式為單體部署(ASP.NET Core + Blazor Server 打包),Python 模型服務獨立部署於同一內網環境
-- 瀏覽器支援 Blazor Server 所需的 SignalR WebSocket 連線
+- 系統採用 Python 3.11+ / Django 4.2+ (ASGI) 單體架構，整合後端 API 與前端模板
+- 前端使用 Django Templates 搭配 HTMX + Alpine.js 實現互動介面，避免重型 SPA 框架
+- 模型推論直接整合於 Django 應用程式內，透過 transformers 庫載入 TAIDE-LX-7B
+- 單一 Python 程序處理 HTTP 請求與模型推論，簡化部署與維護
 - 內網環境具備穩定的網路連線
 - 伺服器具備足夠的硬體資源（建議 8 核心 CPU、16GB RAM,GPU 優先用於模型推論）
 

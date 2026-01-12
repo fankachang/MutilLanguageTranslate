@@ -1,0 +1,262 @@
+{# 
+    歷史記錄列表片段模板
+    History List Partial Template
+    
+    用於在翻譯頁面側邊欄或歷史頁面顯示歷史記錄列表。
+    使用 Alpine.js 進行資料綁定。
+#}
+
+<div class="history-panel" x-data="historyPanelApp()" x-init="loadHistory()">
+    <!-- 標題列 -->
+    <div class="history-panel-header">
+        <h3 class="history-title">
+            📜 歷史記錄
+            <span class="history-count" x-show="items.length > 0">
+                (<span x-text="items.length"></span>)
+            </span>
+        </h3>
+        <button 
+            type="button" 
+            class="btn-icon"
+            @click="collapsed = !collapsed"
+            :title="collapsed ? '展開' : '收起'"
+        >
+            <span x-show="!collapsed">▲</span>
+            <span x-show="collapsed">▼</span>
+        </button>
+    </div>
+    
+    <!-- 記錄列表 -->
+    <div class="history-panel-body" x-show="!collapsed" x-transition>
+        <!-- 無記錄提示 -->
+        <div x-show="items.length === 0" class="history-empty">
+            <p>尚無翻譯記錄</p>
+        </div>
+        
+        <!-- 記錄項目 -->
+        <div class="history-items" x-show="items.length > 0">
+            <template x-for="item in items.slice(0, maxDisplay)" :key="item.id">
+                <div 
+                    class="history-item-compact"
+                    @click="selectItem(item)"
+                    :title="item.fullOriginalText"
+                >
+                    <div class="history-item-preview">
+                        <span class="history-lang-badge" x-text="getLanguageName(item.sourceLang)"></span>
+                        <span class="history-arrow">→</span>
+                        <span class="history-lang-badge" x-text="getLanguageName(item.targetLang)"></span>
+                    </div>
+                    <div class="history-item-text" x-text="item.originalText"></div>
+                    <div class="history-item-time" x-text="formatTime(item.timestamp)"></div>
+                </div>
+            </template>
+            
+            <!-- 查看更多 -->
+            <div x-show="items.length > maxDisplay" class="history-more">
+                <a href="{% url 'translator:history' %}" class="history-more-link">
+                    查看全部 <span x-text="items.length"></span> 筆記錄 →
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.history-panel {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.history-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background-color: var(--bg-tertiary, var(--bg-secondary));
+    border-bottom: 1px solid var(--border-color);
+}
+
+.history-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.history-count {
+    font-weight: normal;
+    color: var(--text-secondary);
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.btn-icon:hover {
+    color: var(--accent-color);
+}
+
+.history-panel-body {
+    padding: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.history-empty {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.history-items {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.history-item-compact {
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.history-item-compact:hover {
+    background-color: var(--bg-primary);
+}
+
+.history-item-preview {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.history-lang-badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    background-color: var(--accent-light, rgba(33, 150, 243, 0.1));
+    color: var(--accent-color);
+    border-radius: 4px;
+}
+
+.history-arrow {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.history-item-text {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-item-time {
+    font-size: 0.7rem;
+    color: var(--text-tertiary, var(--text-secondary));
+    margin-top: 2px;
+}
+
+.history-more {
+    padding: 8px 12px;
+    text-align: center;
+    border-top: 1px solid var(--border-color);
+    margin-top: 4px;
+}
+
+.history-more-link {
+    font-size: 0.85rem;
+    color: var(--accent-color);
+    text-decoration: none;
+}
+
+.history-more-link:hover {
+    text-decoration: underline;
+}
+
+/* 暗色模式調整 */
+.dark .history-lang-badge {
+    background-color: rgba(100, 181, 246, 0.2);
+}
+</style>
+
+<script>
+function historyPanelApp() {
+    return {
+        items: [],
+        collapsed: false,
+        maxDisplay: 5,
+        
+        languageNames: {
+            'zh-TW': '繁體中文',
+            'zh-CN': '簡體中文',
+            'en': '英文',
+            'ja': '日文',
+            'ko': '韓文',
+            'fr': '法文',
+            'de': '德文',
+            'es': '西班牙文',
+            'auto': '自動',
+        },
+        
+        loadHistory() {
+            try {
+                this.items = JSON.parse(sessionStorage.getItem('translationHistory') || '[]');
+            } catch (e) {
+                this.items = [];
+            }
+            
+            // 監聽 storage 變更
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'translationHistory') {
+                    this.loadHistory();
+                }
+            });
+        },
+        
+        getLanguageName(code) {
+            return this.languageNames[code] || code;
+        },
+        
+        formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return '剛才';
+            if (diff < 3600000) return Math.floor(diff / 60000) + ' 分鐘前';
+            
+            if (date.toDateString() === now.toDateString()) {
+                return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+            }
+            
+            return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' });
+        },
+        
+        selectItem(item) {
+            // 觸發自訂事件，由父元件處理
+            window.dispatchEvent(new CustomEvent('history:select', { detail: item }));
+            
+            // 或者如果是在翻譯頁面，直接填入
+            if (window.translationApp) {
+                window.translationApp.sourceText = item.fullOriginalText;
+                window.translationApp.sourceLang = item.sourceLang;
+                window.translationApp.targetLang = item.targetLang;
+                window.translationApp.updateCharCount();
+            }
+        },
+    };
+}
+</script>

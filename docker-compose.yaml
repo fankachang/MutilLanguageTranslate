@@ -1,0 +1,44 @@
+# 多國語言翻譯系統 - Docker Compose 配置
+# 用於本地開發和測試
+
+services:
+  translator:
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: translation-service
+    ports:
+      - "8000:8000"
+    volumes:
+      # 掛載模型目錄（避免每次重建都需要下載模型）
+      - ./models:/app/models:ro
+      # 掛載日誌目錄
+      - ./logs:/app/logs
+      # 掛載配置目錄（可選，用於動態更新配置）
+      - ./config:/app/config:ro
+    environment:
+      - DJANGO_DEBUG=False
+      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-your-secret-key-here}
+    # GPU 支援（如果有 NVIDIA GPU）
+    # 取消註解以下區塊以啟用 GPU
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - translation-network
+
+networks:
+  translation-network:
+    driver: bridge

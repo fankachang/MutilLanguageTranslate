@@ -1,0 +1,407 @@
+{% extends 'translator/base.html' %}
+{% load static %}
+
+{% block title %}系統狀態 - 多國語言翻譯系統{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'translator/css/admin.css' %}">
+{% endblock %}
+
+{% block content %}
+<div x-data="adminStatusApp()" x-init="init()">
+    <!-- 頁面標題 -->
+    <div class="admin-header">
+        <h1 class="admin-title">📊 系統狀態監控</h1>
+        <div class="admin-actions">
+            <button 
+                type="button" 
+                class="btn btn-secondary btn-sm"
+                @click="refresh"
+                :disabled="loading"
+            >
+                <span x-show="!loading">🔄 重新整理</span>
+                <span x-show="loading">
+                    <span class="spinner" style="width: 14px; height: 14px;"></span>
+                    載入中...
+                </span>
+            </button>
+            <label style="display: flex; align-items: center; gap: 8px; margin-left: 16px;">
+                <input type="checkbox" x-model="autoRefresh" @change="toggleAutoRefresh">
+                自動更新（每 30 秒）
+            </label>
+        </div>
+    </div>
+    
+    <!-- 錯誤訊息 -->
+    <div x-show="error" class="error-container error-danger" style="margin-bottom: 20px;">
+        <span x-text="error"></span>
+        <button type="button" class="error-close" @click="error = ''">&times;</button>
+    </div>
+    
+    <!-- 狀態總覽 -->
+    <div class="status-overview">
+        <div class="status-card" :class="getHealthClass()">
+            <div class="status-icon">
+                <span x-show="systemHealth === 'healthy'">✅</span>
+                <span x-show="systemHealth === 'warning'">⚠️</span>
+                <span x-show="systemHealth === 'error'">❌</span>
+            </div>
+            <div class="status-content">
+                <div class="status-label">系統狀態</div>
+                <div class="status-value" x-text="getHealthText()"></div>
+            </div>
+        </div>
+        
+        <div class="status-card">
+            <div class="status-icon">🖥️</div>
+            <div class="status-content">
+                <div class="status-label">執行時間</div>
+                <div class="status-value" x-text="uptime"></div>
+            </div>
+        </div>
+        
+        <div class="status-card" :class="{ 'status-warning': modelStatus !== '已載入' }">
+            <div class="status-icon">🤖</div>
+            <div class="status-content">
+                <div class="status-label">翻譯模型</div>
+                <div class="status-value" x-text="modelStatus"></div>
+            </div>
+        </div>
+        
+        <div class="status-card">
+            <div class="status-icon">📝</div>
+            <div class="status-content">
+                <div class="status-label">佇列狀態</div>
+                <div class="status-value" x-text="queueStatus"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 資源使用狀況 -->
+    <div class="section-title">資源使用狀況</div>
+    <div class="resource-grid">
+        <!-- CPU -->
+        <div class="resource-card">
+            <div class="resource-header">
+                <span class="resource-title">💻 CPU</span>
+                <span class="resource-value" x-text="cpuPercent + '%'"></span>
+            </div>
+            <div class="progress-bar">
+                <div 
+                    class="progress-bar-fill" 
+                    :class="getProgressClass(cpuPercent)"
+                    :style="'width: ' + cpuPercent + '%'"
+                ></div>
+            </div>
+            <div class="resource-detail">
+                <span>核心數：<span x-text="cpuCores"></span></span>
+                <span>程序使用：<span x-text="processCpu + '%'"></span></span>
+            </div>
+        </div>
+        
+        <!-- 記憶體 -->
+        <div class="resource-card">
+            <div class="resource-header">
+                <span class="resource-title">🧠 記憶體</span>
+                <span class="resource-value" x-text="memoryPercent + '%'"></span>
+            </div>
+            <div class="progress-bar">
+                <div 
+                    class="progress-bar-fill" 
+                    :class="getProgressClass(memoryPercent)"
+                    :style="'width: ' + memoryPercent + '%'"
+                ></div>
+            </div>
+            <div class="resource-detail">
+                <span>使用：<span x-text="memoryUsed"></span> GB</span>
+                <span>總計：<span x-text="memoryTotal"></span> GB</span>
+            </div>
+        </div>
+        
+        <!-- GPU -->
+        <div class="resource-card" x-show="gpuAvailable">
+            <div class="resource-header">
+                <span class="resource-title">🎮 GPU</span>
+                <span class="resource-value" x-text="gpuMemoryPercent + '%'"></span>
+            </div>
+            <div class="progress-bar">
+                <div 
+                    class="progress-bar-fill" 
+                    :class="getProgressClass(gpuMemoryPercent)"
+                    :style="'width: ' + gpuMemoryPercent + '%'"
+                ></div>
+            </div>
+            <div class="resource-detail">
+                <span x-text="gpuName"></span>
+                <span>VRAM：<span x-text="gpuMemoryUsed"></span> / <span x-text="gpuMemoryTotal"></span> GB</span>
+            </div>
+        </div>
+        
+        <!-- 磁碟 -->
+        <div class="resource-card">
+            <div class="resource-header">
+                <span class="resource-title">💾 磁碟</span>
+                <span class="resource-value" x-text="diskPercent + '%'"></span>
+            </div>
+            <div class="progress-bar">
+                <div 
+                    class="progress-bar-fill" 
+                    :class="getProgressClass(diskPercent)"
+                    :style="'width: ' + diskPercent + '%'"
+                ></div>
+            </div>
+            <div class="resource-detail">
+                <span>使用：<span x-text="diskUsed"></span> GB</span>
+                <span>可用：<span x-text="diskFree"></span> GB</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 統計資訊 -->
+    <div class="section-title">翻譯統計（24 小時）</div>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value" x-text="totalRequests"></div>
+            <div class="stat-label">總請求數</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="successRate + '%'"></div>
+            <div class="stat-label">成功率</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="avgProcessingTime + ' ms'"></div>
+            <div class="stat-label">平均處理時間</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" x-text="activeConnections"></div>
+            <div class="stat-label">目前連線數</div>
+        </div>
+    </div>
+    
+    <!-- 系統資訊 -->
+    <div class="section-title">系統資訊</div>
+    <div class="info-table">
+        <div class="info-row">
+            <span class="info-label">作業系統</span>
+            <span class="info-value" x-text="platform"></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">主機名稱</span>
+            <span class="info-value" x-text="hostname"></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Python 版本</span>
+            <span class="info-value" x-text="pythonVersion"></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">執行模式</span>
+            <span class="info-value" x-text="executionMode"></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">最後更新</span>
+            <span class="info-value" x-text="lastUpdate"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function adminStatusApp() {
+    return {
+        // 狀態
+        loading: false,
+        error: '',
+        autoRefresh: false,
+        refreshInterval: null,
+        
+        // 系統健康
+        systemHealth: 'healthy',
+        uptime: '-',
+        modelStatus: '-',
+        queueStatus: '-',
+        
+        // CPU
+        cpuPercent: 0,
+        cpuCores: 0,
+        processCpu: 0,
+        
+        // 記憶體
+        memoryPercent: 0,
+        memoryUsed: 0,
+        memoryTotal: 0,
+        
+        // GPU
+        gpuAvailable: false,
+        gpuName: '',
+        gpuMemoryPercent: 0,
+        gpuMemoryUsed: 0,
+        gpuMemoryTotal: 0,
+        
+        // 磁碟
+        diskPercent: 0,
+        diskUsed: 0,
+        diskFree: 0,
+        
+        // 統計
+        totalRequests: 0,
+        successRate: 0,
+        avgProcessingTime: 0,
+        activeConnections: 0,
+        
+        // 系統資訊
+        platform: '-',
+        hostname: '-',
+        pythonVersion: '-',
+        executionMode: '-',
+        lastUpdate: '-',
+        
+        async init() {
+            await this.refresh();
+        },
+        
+        async refresh() {
+            this.loading = true;
+            this.error = '';
+            
+            try {
+                // 取得系統狀態
+                const statusResponse = await fetch('/api/v1/admin/status/');
+                const statusData = await statusResponse.json();
+                
+                if (statusResponse.ok) {
+                    this.updateStatus(statusData);
+                } else {
+                    this.error = statusData.error?.message || '取得狀態失敗';
+                }
+                
+                // 取得統計資訊
+                const statsResponse = await fetch('/api/v1/admin/statistics/');
+                const statsData = await statsResponse.json();
+                
+                if (statsResponse.ok) {
+                    this.updateStatistics(statsData);
+                }
+                
+            } catch (e) {
+                console.error('重新整理失敗:', e);
+                this.error = '無法連線到伺服器';
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        updateStatus(data) {
+            // 執行時間
+            this.uptime = data.uptime?.app_uptime_formatted || '-';
+            
+            // 模型狀態
+            this.modelStatus = data.model?.loaded ? '已載入' : '未載入';
+            this.executionMode = data.model?.execution_mode || '-';
+            
+            // 佇列狀態
+            const queue = data.queue || {};
+            this.queueStatus = `處理中 ${queue.processing || 0} / 等待 ${queue.waiting || 0}`;
+            
+            // CPU
+            if (data.resources?.cpu?.available) {
+                this.cpuPercent = data.resources.cpu.percent || 0;
+                this.cpuCores = data.resources.cpu.count_logical || 0;
+                this.processCpu = data.resources.cpu.process_percent || 0;
+            }
+            
+            // 記憶體
+            if (data.resources?.memory?.available) {
+                this.memoryPercent = data.resources.memory.percent || 0;
+                this.memoryUsed = data.resources.memory.used_gb || 0;
+                this.memoryTotal = data.resources.memory.total_gb || 0;
+            }
+            
+            // GPU
+            if (data.resources?.gpu?.available && data.resources.gpu.devices?.length > 0) {
+                this.gpuAvailable = true;
+                const gpu = data.resources.gpu.devices[0];
+                this.gpuName = gpu.name || '';
+                this.gpuMemoryPercent = gpu.memory_percent || 0;
+                this.gpuMemoryUsed = gpu.allocated_memory_gb || 0;
+                this.gpuMemoryTotal = gpu.total_memory_gb || 0;
+            } else {
+                this.gpuAvailable = false;
+            }
+            
+            // 磁碟
+            if (data.resources?.disk?.available) {
+                this.diskPercent = data.resources.disk.percent || 0;
+                this.diskUsed = data.resources.disk.used_gb || 0;
+                this.diskFree = data.resources.disk.free_gb || 0;
+            }
+            
+            // 系統資訊
+            if (data.system) {
+                this.platform = `${data.system.platform} ${data.system.platform_release}`;
+                this.hostname = data.system.hostname || '-';
+                this.pythonVersion = data.system.python_version || '-';
+            }
+            
+            // 判斷健康狀態
+            this.updateHealthStatus();
+            
+            // 更新時間
+            this.lastUpdate = new Date().toLocaleTimeString('zh-TW');
+        },
+        
+        updateStatistics(data) {
+            const stats = data.statistics || {};
+            this.totalRequests = stats.total_requests || 0;
+            this.successRate = stats.success_rate || 0;
+            this.avgProcessingTime = Math.round(stats.avg_processing_time_ms || 0);
+            this.activeConnections = stats.active_connections || 0;
+        },
+        
+        updateHealthStatus() {
+            if (this.cpuPercent > 90 || this.memoryPercent > 90) {
+                this.systemHealth = 'error';
+            } else if (this.cpuPercent > 70 || this.memoryPercent > 70) {
+                this.systemHealth = 'warning';
+            } else {
+                this.systemHealth = 'healthy';
+            }
+        },
+        
+        toggleAutoRefresh() {
+            if (this.autoRefresh) {
+                this.refreshInterval = setInterval(() => this.refresh(), 30000);
+            } else {
+                if (this.refreshInterval) {
+                    clearInterval(this.refreshInterval);
+                    this.refreshInterval = null;
+                }
+            }
+        },
+        
+        getHealthClass() {
+            return {
+                'status-healthy': this.systemHealth === 'healthy',
+                'status-warning': this.systemHealth === 'warning',
+                'status-error': this.systemHealth === 'error',
+            };
+        },
+        
+        getHealthText() {
+            const texts = {
+                healthy: '正常運作',
+                warning: '需要注意',
+                error: '異常',
+            };
+            return texts[this.systemHealth] || '-';
+        },
+        
+        getProgressClass(percent) {
+            if (percent > 90) return 'progress-danger';
+            if (percent > 70) return 'progress-warning';
+            return 'progress-normal';
+        },
+    };
+}
+</script>
+{% endblock %}

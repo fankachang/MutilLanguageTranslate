@@ -97,6 +97,10 @@ def admin_status_page(request):
     """
     系統狀態頁面（管理介面）
     
-    將在 T047 實作
+    顯示系統資源使用狀況、翻譯統計等監控資訊
+    注意：此頁面透過 IP 白名單中介軟體保護
     """
-    return HttpResponse("系統狀態頁面（建置中）")
+    context = {
+        'page_title': '系統狀態監控',
+    }
+    return render(request, 'translator/admin_status.html', context)

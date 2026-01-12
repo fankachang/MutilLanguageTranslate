@@ -226,8 +226,54 @@ def admin_status(request: HttpRequest) -> JsonResponse:
     取得系統狀態（需 IP 白名單）
     """
     # IP 驗證由中介軟體處理
-    # 將在 T044 完整實作
-    return JsonResponse({'status': 'not_implemented'}, status=501)
+    try:
+        from translator.services.model_service import get_model_service
+        from translator.services.monitor_service import get_monitor_service
+        from translator.services.queue_service import get_queue_service
+        
+        monitor_service = get_monitor_service()
+        model_service = get_model_service()
+        queue_service = get_queue_service()
+        
+        # 取得系統狀態
+        full_status = monitor_service.get_full_status()
+        
+        # 取得模型狀態
+        model_status = {
+            'loaded': model_service.is_loaded(),
+            'name': 'TAIDE-LX-7B',
+            'execution_mode': model_service.get_execution_mode() if model_service.is_loaded() else None,
+        }
+        
+        # 取得佇列狀態
+        queue_status = queue_service.get_queue_status()
+        
+        return JsonResponse({
+            'status': 'ok',
+            'timestamp': full_status['timestamp'],
+            'system': full_status['system'],
+            'resources': {
+                'cpu': full_status['cpu'],
+                'memory': full_status['memory'],
+                'gpu': full_status['gpu'],
+                'disk': full_status['disk'],
+            },
+            'uptime': full_status['uptime'],
+            'model': model_status,
+            'queue': queue_status,
+        })
+        
+    except Exception as e:
+        logger.error(f"系統狀態 API 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500
+        )
 
 
 @require_http_methods(["GET"])
@@ -238,8 +284,28 @@ def admin_statistics(request: HttpRequest) -> JsonResponse:
     取得翻譯統計（需 IP 白名單）
     """
     # IP 驗證由中介軟體處理
-    # 將在 T045 完整實作
-    return JsonResponse({'status': 'not_implemented'}, status=501)
+    try:
+        from translator.services.statistics_service import get_statistics_service
+        
+        statistics_service = get_statistics_service()
+        stats = statistics_service.get_statistics()
+        
+        return JsonResponse({
+            'status': 'ok',
+            'statistics': stats,
+        })
+        
+    except Exception as e:
+        logger.error(f"統計 API 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500
+        )
 
 
 @require_http_methods(["GET"])

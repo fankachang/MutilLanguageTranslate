@@ -314,23 +314,251 @@ def health_check(request: HttpRequest) -> JsonResponse:
     GET /api/health/
     
     健康檢查端點
+    
+    用於 Kubernetes/容器編排的健康檢查探針
+    回傳系統各元件的健康狀態
     """
-    # 將在 T050 完整實作
     from datetime import datetime
     from translator.services.model_service import get_model_service
+    from translator.services.queue_service import get_queue_service
+    from translator.utils.logger import get_translator_logger
     
-    model_service = get_model_service()
+    translator_logger = get_translator_logger()
+    
+    # 執行各項健康檢查
+    checks = {}
+    overall_status = 'healthy'
+    
+    # 1. API 可用性檢查（能回應此請求即為健康）
+    checks['api'] = {
+        'status': 'healthy',
+        'message': 'API 服務運作正常',
+    }
+    
+    # 2. 翻譯模型檢查
+    try:
+        model_service = get_model_service()
+        model_loaded = model_service.is_loaded()
+        
+        if model_loaded:
+            checks['translation_model'] = {
+                'status': 'healthy',
+                'model_name': 'TAIDE-LX-7B',
+                'execution_mode': model_service.get_execution_mode(),
+                'message': '翻譯模型已載入',
+            }
+        else:
+            checks['translation_model'] = {
+                'status': 'degraded',
+                'model_name': 'TAIDE-LX-7B',
+                'execution_mode': None,
+                'message': '翻譯模型尚未載入',
+            }
+            # 模型未載入時，系統仍可接受請求（將排隊等待）
+            if overall_status == 'healthy':
+                overall_status = 'degraded'
+    except Exception as e:
+        checks['translation_model'] = {
+            'status': 'unhealthy',
+            'model_name': 'TAIDE-LX-7B',
+            'message': f'模型檢查失敗: {str(e)}',
+        }
+        overall_status = 'unhealthy'
+    
+    # 3. 佇列服務檢查
+    try:
+        queue_service = get_queue_service()
+        queue_status = queue_service.get_queue_status()
+        
+        queue_size = queue_status.get('waiting', 0)
+        max_queue_size = 1000  # 假設佇列上限
+        
+        if queue_size < max_queue_size * 0.8:
+            checks['queue'] = {
+                'status': 'healthy',
+                'queue_size': queue_size,
+                'message': '佇列服務運作正常',
+            }
+        elif queue_size < max_queue_size:
+            checks['queue'] = {
+                'status': 'degraded',
+                'queue_size': queue_size,
+                'message': '佇列接近容量上限',
+            }
+            if overall_status == 'healthy':
+                overall_status = 'degraded'
+        else:
+            checks['queue'] = {
+                'status': 'unhealthy',
+                'queue_size': queue_size,
+                'message': '佇列已滿',
+            }
+            overall_status = 'unhealthy'
+    except Exception as e:
+        checks['queue'] = {
+            'status': 'unhealthy',
+            'message': f'佇列檢查失敗: {str(e)}',
+        }
+        overall_status = 'unhealthy'
+    
+    # 4. 記憶體檢查
+    try:
+        import psutil
+        memory = psutil.virtual_memory()
+        memory_percent = memory.percent
+        
+        if memory_percent < 80:
+            checks['memory'] = {
+                'status': 'healthy',
+                'usage_percent': memory_percent,
+                'message': '記憶體使用正常',
+            }
+        elif memory_percent < 90:
+            checks['memory'] = {
+                'status': 'degraded',
+                'usage_percent': memory_percent,
+                'message': '記憶體使用較高',
+            }
+            if overall_status == 'healthy':
+                overall_status = 'degraded'
+        else:
+            checks['memory'] = {
+                'status': 'unhealthy',
+                'usage_percent': memory_percent,
+                'message': '記憶體不足',
+            }
+            overall_status = 'unhealthy'
+    except ImportError:
+        checks['memory'] = {
+            'status': 'unknown',
+            'message': 'psutil 未安裝，無法檢查記憶體',
+        }
+    except Exception as e:
+        checks['memory'] = {
+            'status': 'unknown',
+            'message': f'記憶體檢查失敗: {str(e)}',
+        }
+    
+    # 記錄健康檢查
+    translator_logger.log_health_check(overall_status, checks)
+    
+    # 根據狀態決定 HTTP 狀態碼
+    if overall_status == 'healthy':
+        http_status = 200
+    elif overall_status == 'degraded':
+        http_status = 200  # 降級但仍可用
+    else:
+        http_status = 503  # 服務不可用
     
     return JsonResponse({
-        'status': 'healthy',
+        'status': overall_status,
         'timestamp': datetime.utcnow().isoformat() + 'Z',
-        'checks': {
-            'api': {
-                'status': 'healthy',
-            },
-            'translation_model': {
-                'status': 'healthy' if model_service.is_loaded() else 'not_loaded',
-                'model_name': 'TAIDE-LX-7B',
-            },
-        },
-    })
+        'checks': checks,
+    }, status=http_status)
+
+
+@require_http_methods(["GET"])
+def readiness_probe(request: HttpRequest) -> JsonResponse:
+    """
+    GET /api/ready/
+    
+    就緒探針 - Kubernetes readiness probe
+    
+    檢查服務是否準備好接收流量
+    - 模型已載入
+    - 佇列未滿
+    """
+    from datetime import datetime
+    from translator.services.model_service import get_model_service
+    from translator.services.queue_service import get_queue_service
+    
+    ready = True
+    reasons = []
+    
+    # 檢查模型狀態
+    try:
+        model_service = get_model_service()
+        if not model_service.is_loaded():
+            ready = False
+            reasons.append('翻譯模型尚未載入')
+    except Exception as e:
+        ready = False
+        reasons.append(f'模型服務異常: {str(e)}')
+    
+    # 檢查佇列容量
+    try:
+        queue_service = get_queue_service()
+        queue_status = queue_service.get_queue_status()
+        waiting = queue_status.get('waiting', 0)
+        
+        # 如果佇列超過 800 個待處理，暫停接收新請求
+        if waiting >= 800:
+            ready = False
+            reasons.append(f'佇列已滿（{waiting} 個待處理）')
+    except Exception as e:
+        ready = False
+        reasons.append(f'佇列服務異常: {str(e)}')
+    
+    # 檢查是否正在關閉
+    try:
+        from translator.services.shutdown_service import get_shutdown_service
+        shutdown_service = get_shutdown_service()
+        if shutdown_service.is_shutting_down:
+            ready = False
+            reasons.append('服務正在關閉中')
+    except Exception:
+        pass  # 關閉服務未初始化時忽略
+    
+    if ready:
+        return JsonResponse({
+            'status': 'ready',
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+        }, status=200)
+    else:
+        return JsonResponse({
+            'status': 'not_ready',
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'reasons': reasons,
+        }, status=503)
+
+
+@require_http_methods(["GET"])
+def liveness_probe(request: HttpRequest) -> JsonResponse:
+    """
+    GET /api/live/
+    
+    存活探針 - Kubernetes liveness probe
+    
+    檢查服務是否存活（能夠回應請求）
+    這是最基本的檢查，只要能回應即為存活
+    """
+    from datetime import datetime
+    
+    alive = True
+    reasons = []
+    
+    # 基本記憶體檢查（避免 OOM）
+    try:
+        import psutil
+        memory = psutil.virtual_memory()
+        
+        # 如果記憶體使用超過 95%，可能需要重啟
+        if memory.percent > 95:
+            alive = False
+            reasons.append(f'記憶體使用過高（{memory.percent}%）')
+    except ImportError:
+        pass  # psutil 未安裝時跳過
+    except Exception as e:
+        logger.warning(f"存活探針記憶體檢查失敗: {e}")
+    
+    if alive:
+        return JsonResponse({
+            'status': 'alive',
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+        }, status=200)
+    else:
+        return JsonResponse({
+            'status': 'not_alive',
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'reasons': reasons,
+        }, status=503)

@@ -7,7 +7,7 @@ URL configuration for translation_project project.
 from django.contrib import admin
 from django.urls import include, path
 
-from translator.api.views import health_check
+from translator.api.views import health_check, liveness_probe, readiness_probe
 
 urlpatterns = [
     # Django Admin
@@ -18,6 +18,10 @@ urlpatterns = [
     
     # 健康檢查
     path('api/health/', health_check, name='health_check'),
+    
+    # Kubernetes 探針
+    path('api/ready/', readiness_probe, name='readiness_probe'),
+    path('api/live/', liveness_probe, name='liveness_probe'),
     
     # 前端頁面（將在後續實作）
     path('', include('translator.urls')),

@@ -1,0 +1,107 @@
+{# 
+    錯誤訊息片段模板
+    Error Message Partial Template
+    
+    用於顯示翻譯系統的錯誤訊息，支援多種錯誤類型和樣式。
+    使用方式：{% include 'translator/partials/error.html' with error_code=... error_message=... %}
+#}
+
+<div class="error-container {% if error_type %}error-{{ error_type }}{% else %}error-danger{% endif %} fade-in" 
+     role="alert" 
+     aria-live="assertive"
+     x-data="{ show: true }"
+     x-show="show"
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0 transform -translate-y-2"
+     x-transition:enter-end="opacity-100 transform translate-y-0"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100 transform translate-y-0"
+     x-transition:leave-end="opacity-0 transform -translate-y-2">
+    
+    <div class="error-icon">
+        {% if error_type == 'warning' %}
+            ⚠️
+        {% elif error_type == 'info' %}
+            ℹ️
+        {% elif error_type == 'network' %}
+            🔌
+        {% elif error_type == 'timeout' %}
+            ⏱️
+        {% else %}
+            ❌
+        {% endif %}
+    </div>
+    
+    <div class="error-content">
+        {% if error_code %}
+        <div class="error-code-badge">{{ error_code }}</div>
+        {% endif %}
+        
+        <div class="error-message">
+            {% if error_message %}
+                {{ error_message }}
+            {% elif error_code %}
+                {# 根據錯誤代碼顯示對應的中文訊息 #}
+                {% if error_code == 'VALIDATION_EMPTY_TEXT' %}
+                    請輸入要翻譯的文字
+                {% elif error_code == 'VALIDATION_TEXT_TOO_LONG' %}
+                    文字長度超過 10,000 字元，請縮短後再試
+                {% elif error_code == 'VALIDATION_SAME_LANGUAGE' %}
+                    來源語言與目標語言不可相同
+                {% elif error_code == 'VALIDATION_INVALID_LANGUAGE' %}
+                    無效的語言代碼
+                {% elif error_code == 'QUEUE_FULL' %}
+                    系統繁忙，請稍後再試
+                {% elif error_code == 'SERVICE_UNAVAILABLE' %}
+                    翻譯服務暫時無法使用，請稍後再試
+                {% elif error_code == 'TRANSLATION_TIMEOUT' %}
+                    翻譯逾時，請嘗試縮短文字長度或稍後再試
+                {% elif error_code == 'MODEL_NOT_LOADED' %}
+                    翻譯模型尚未載入，請稍後再試
+                {% elif error_code == 'NETWORK_ERROR' %}
+                    網路連線失敗，請檢查網路狀態
+                {% elif error_code == 'ACCESS_DENIED' %}
+                    IP 位址不在白名單中
+                {% elif error_code == 'INTERNAL_ERROR' %}
+                    系統內部錯誤，請聯繫管理員
+                {% else %}
+                    發生未知錯誤，請稍後再試
+                {% endif %}
+            {% else %}
+                發生錯誤，請稍後再試
+            {% endif %}
+        </div>
+        
+        {% if error_details %}
+        <div class="error-details">
+            <details>
+                <summary>詳細資訊</summary>
+                <pre>{{ error_details }}</pre>
+            </details>
+        </div>
+        {% endif %}
+    </div>
+    
+    <button type="button" 
+            class="error-close" 
+            @click="show = false"
+            aria-label="關閉">
+        &times;
+    </button>
+</div>
+
+{# 
+    使用範例：
+    
+    1. 基本錯誤：
+    {% include 'translator/partials/error.html' with error_code='VALIDATION_EMPTY_TEXT' %}
+    
+    2. 自訂訊息：
+    {% include 'translator/partials/error.html' with error_message='這是自訂錯誤訊息' %}
+    
+    3. 警告類型：
+    {% include 'translator/partials/error.html' with error_type='warning' error_message='這是警告訊息' %}
+    
+    4. 包含詳細資訊：
+    {% include 'translator/partials/error.html' with error_code='INTERNAL_ERROR' error_details='Stack trace...' %}
+#}

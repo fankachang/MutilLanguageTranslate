@@ -59,6 +59,7 @@ class TranslationRequest:
         request_id: 唯一識別碼
         client_ip: 請求來源 IP
         received_at: 請求接收時間
+        created_at: 建立時間（別名）
     """
     text: str
     target_language: str
@@ -67,6 +68,11 @@ class TranslationRequest:
     request_id: str = field(default_factory=lambda: str(uuid4()))
     client_ip: str = ""
     received_at: datetime = field(default_factory=datetime.utcnow)
+    
+    @property
+    def created_at(self) -> datetime:
+        """建立時間（received_at 的別名）"""
+        return self.received_at
     
     def to_dict(self) -> dict:
         """轉換為字典格式"""

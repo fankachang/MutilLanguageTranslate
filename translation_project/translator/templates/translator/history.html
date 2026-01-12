@@ -23,7 +23,7 @@
                 <div style="font-size: 3rem; margin-bottom: 16px;">📝</div>
                 <p>尚無翻譯記錄</p>
                 <p style="font-size: 0.875rem;">您的翻譯記錄將在此處顯示（儲存於瀏覽器 session 中）</p>
-                <a href="{% url 'index' %}" class="btn btn-primary" style="margin-top: 16px;">
+                <a href="{% url 'translator:index' %}" class="btn btn-primary" style="margin-top: 16px;">
                     開始翻譯
                 </a>
             </div>
@@ -156,7 +156,7 @@ function historyApp() {
         reuseTranslation(item) {
             // 儲存到 session 並跳轉
             sessionStorage.setItem('reuseTranslation', JSON.stringify(item));
-            window.location.href = '{% url "index" %}';
+            window.location.href = '{% url "translator:index" %}';
         },
         
         deleteItem(id) {

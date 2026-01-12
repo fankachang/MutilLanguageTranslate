@@ -87,11 +87,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] 實作語言 API 視圖 `translator/api/views.py` - GET /api/v1/languages/（語言清單）
-- [ ] T026 [US2] 擴展翻譯服務 `translator/services/translation_service.py`（自動語言偵測、信心分數解析、回退邏輯）
-- [ ] T027 [US2] 更新翻譯頁面模板 `translator/templates/translator/index.html`（語言下拉選單、自動偵測選項、語言交換按鈕）
-- [ ] T028 [US2] 實作語言交換功能 `translator/static/translator/js/translation.js`（Alpine.js 雙向綁定）
-- [ ] T029 [US2] 建立偵測語言顯示片段 `translator/templates/translator/partials/detected_lang.html`
+- [X] T025 [US2] 實作語言 API 視圖 `translator/api/views.py` - GET /api/v1/languages/（語言清單）
+- [X] T026 [US2] 擴展翻譯服務 `translator/services/translation_service.py`（自動語言偵測、信心分數解析、回退邏輯）
+- [X] T027 [US2] 更新翻譯頁面模板 `translator/templates/translator/index.html`（語言下拉選單、自動偵測選項、語言交換按鈕）
+- [X] T028 [US2] 實作語言交換功能 `translator/static/translator/js/translation.js`（Alpine.js 雙向綁定）
+- [X] T029 [US2] 建立偵測語言顯示片段 `translator/templates/translator/partials/detected_lang.html`
 
 **Checkpoint**: User Story 2 完成 - 多語言功能可獨立運作與測試
 
@@ -105,11 +105,11 @@
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] 實作前端驗證 `translator/static/translator/js/validation.js`（空白檢查、字數限制、相同語言檢查）
-- [ ] T031 [US3] 建立錯誤訊息片段模板 `translator/templates/translator/partials/error.html`（錯誤代碼對應中文訊息）
-- [ ] T032 [US3] 更新 API 視圖錯誤處理 `translator/api/views.py`（ValidationError、ServiceUnavailable、Timeout 處理）
-- [ ] T033 [US3] 實作 API 例外處理器 `translator/api/exception_handlers.py`（統一錯誤回應格式）
-- [ ] T034 [US3] 建立錯誤訊息樣式 `translator/static/translator/css/error.css`（警告/錯誤樣式）
+- [X] T030 [US3] 實作前端驗證 `translator/static/translator/js/validation.js`（空白檢查、字數限制、相同語言檢查）
+- [X] T031 [US3] 建立錯誤訊息片段模板 `translator/templates/translator/partials/error.html`（錯誤代碼對應中文訊息）
+- [X] T032 [US3] 更新 API 視圖錯誤處理 `translator/api/views.py`（ValidationError、ServiceUnavailable、Timeout 處理）
+- [X] T033 [US3] 實作 API 例外處理器 `translator/api/exception_handlers.py`（統一錯誤回應格式）
+- [X] T034 [US3] 建立錯誤訊息樣式 `translator/static/translator/css/error.css`（警告/錯誤樣式）
 
 **Checkpoint**: User Story 3 完成 - 錯誤處理功能可獨立運作與測試
 
@@ -123,11 +123,11 @@
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] 建立設定頁面模板 `translator/templates/translator/settings.html`（品質選擇、主題切換、字體大小）
-- [ ] T036 [US4] 實作設定頁面視圖 `translator/views.py` - 設定頁面渲染
-- [ ] T037 [US4] 實作 sessionStorage 設定管理 `translator/static/translator/js/settings.js`（儲存、讀取、套用設定）
-- [ ] T038 [US4] 建立主題樣式 `translator/static/translator/css/themes.css`（亮色/暗色主題 CSS 變數）
-- [ ] T039 [US4] 更新基礎模板 `translator/templates/translator/base.html`（套用使用者設定）
+- [X] T035 [US4] 建立設定頁面模板 `translator/templates/translator/settings.html`（品質選擇、主題切換、字體大小）
+- [X] T036 [US4] 實作設定頁面視圖 `translator/views.py` - 設定頁面渲染
+- [X] T037 [US4] 實作 sessionStorage 設定管理 `translator/static/translator/js/settings.js`（儲存、讀取、套用設定）
+- [X] T038 [US4] 建立主題樣式 `translator/static/translator/css/themes.css`（亮色/暗色主題 CSS 變數）
+- [X] T039 [US4] 更新基礎模板 `translator/templates/translator/base.html`（套用使用者設定）
 
 **Checkpoint**: User Story 4 完成 - 設定功能可獨立運作與測試
 
@@ -141,10 +141,10 @@
 
 ### Implementation for User Story 5
 
-- [ ] T040 [US5] 實作歷史記錄管理 `translator/static/translator/js/history.js`（sessionStorage 儲存、20 筆上限、FIFO）
-- [ ] T041 [US5] 建立歷史記錄列表片段 `translator/templates/translator/partials/history_list.html`
-- [ ] T042 [US5] 更新翻譯頁面模板 `translator/templates/translator/index.html`（歷史記錄側邊欄/折疊區）
-- [ ] T043 [US5] 實作歷史記錄點擊重現功能 `translator/static/translator/js/history.js`（填入原文/譯文/語言設定）
+- [X] T040 [US5] 實作歷史記錄管理 `translator/static/translator/js/history.js`（sessionStorage 儲存、20 筆上限、FIFO）
+- [X] T041 [US5] 建立歷史記錄列表片段 `translator/templates/translator/partials/history_list.html`
+- [X] T042 [US5] 更新翻譯頁面模板 `translator/templates/translator/index.html`（歷史記錄側邊欄/折疊區）
+- [X] T043 [US5] 實作歷史記錄點擊重現功能 `translator/static/translator/js/history.js`（填入原文/譯文/語言設定）
 
 **Checkpoint**: User Story 5 完成 - 歷史記錄功能可獨立運作與測試
 
@@ -158,12 +158,12 @@
 
 ### Implementation for User Story 6
 
-- [ ] T044 [US6] 實作系統狀態 API 視圖 `translator/api/views.py` - GET /api/v1/admin/status/（系統狀態、資源使用）
-- [ ] T045 [US6] 實作統計 API 視圖 `translator/api/views.py` - GET /api/v1/admin/statistics/（24 小時統計）
-- [ ] T046 [US6] 建立系統狀態頁面模板 `translator/templates/translator/admin_status.html`
-- [ ] T047 [US6] 實作系統狀態頁面視圖 `translator/views.py` - 管理頁面渲染（IP 白名單驗證）
-- [ ] T048 [US6] 建立狀態頁面樣式 `translator/static/translator/css/admin.css`（儀表板佈局、指標卡片）
-- [ ] T049 [US6] 實作系統資源監控 `translator/services/monitor_service.py`（psutil CPU/記憶體、GPU VRAM）
+- [X] T044 [US6] 實作系統狀態 API 視圖 `translator/api/views.py` - GET /api/v1/admin/status/（系統狀態、資源使用）
+- [X] T045 [US6] 實作統計 API 視圖 `translator/api/views.py` - GET /api/v1/admin/statistics/（24 小時統計）
+- [X] T046 [US6] 建立系統狀態頁面模板 `translator/templates/translator/admin_status.html`
+- [X] T047 [US6] 實作系統狀態頁面視圖 `translator/views.py` - 管理頁面渲染（IP 白名單驗證）
+- [X] T048 [US6] 建立狀態頁面樣式 `translator/static/translator/css/admin.css`（儀表板佈局、指標卡片）
+- [X] T049 [US6] 實作系統資源監控 `translator/services/monitor_service.py`（psutil CPU/記憶體、GPU VRAM）
 
 **Checkpoint**: User Story 6 完成 - 系統監控功能可獨立運作與測試
 
@@ -173,10 +173,10 @@
 
 **Purpose**: 系統維運相關功能
 
-- [ ] T050 實作健康檢查 API `translator/api/views.py` - GET /api/health/（API 回應、模型狀態驗證）
-- [ ] T051 實作優雅停止機制 `translator/services/shutdown_service.py`（SIGTERM 處理、等待進行中請求、120 秒超時）
-- [ ] T052 實作日誌輪替配置 `translation_project/settings.py`（RotatingFileHandler、30 天保留）
-- [ ] T053 [P] 建立日誌記錄工具 `translator/utils/logger.py`（翻譯請求日誌、錯誤日誌）
+- [X] T050 實作健康檢查 API `translator/api/views.py` - GET /api/health/（API 回應、模型狀態驗證）
+- [X] T051 實作優雅停止機制 `translator/services/shutdown_service.py`（SIGTERM 處理、等待進行中請求、120 秒超時）
+- [X] T052 實作日誌輪替配置 `translation_project/settings.py`（RotatingFileHandler、30 天保留）
+- [X] T053 [P] 建立日誌記錄工具 `translator/utils/logger.py`（翻譯請求日誌、錯誤日誌）
 
 ---
 
@@ -184,13 +184,13 @@
 
 **Purpose**: 最終調整與驗收
 
-- [ ] T054 [P] 建立 Containerfile（Podman 部署配置）
-- [ ] T055 [P] 更新 README.md（專案說明、快速開始）
+- [X] T054 [P] 建立 Containerfile（Podman 部署配置）
+- [X] T055 [P] 更新 README.md（專案說明、快速開始）
 - [ ] T056 程式碼清理與重構（移除 debug 程式碼、統一程式碼風格）
 - [ ] T057 執行 quickstart.md 驗證（依照文件步驟測試部署流程）
-- [ ] T058 [P] 建立單元測試 `tests/unit/`（Constitution IV 要求，建議 MVP 後補充）
-- [ ] T059 [P] 建立整合測試 `tests/integration/`（Constitution IV 要求，建議 MVP 後補充）
-- [ ] T060 [P] 建立效能測試 `tests/performance/`（驗證 100 並發目標，建議上線前完成）
+- [X] T058 [P] 建立單元測試 `tests/unit/`（Constitution IV 要求，建議 MVP 後補充）
+- [X] T059 [P] 建立整合測試 `tests/integration/`（Constitution IV 要求，建議 MVP 後補充）
+- [X] T060 [P] 建立效能測試 `tests/performance/`（驗證 100 並發目標，建議上線前完成）
 
 ---
 

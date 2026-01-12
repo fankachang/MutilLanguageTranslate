@@ -71,21 +71,21 @@ class TestLanguageModel(unittest.TestCase):
     
     def test_language_to_dict(self):
         """測試語言轉換為字典"""
-        from translator.utils.config_loader import Language
+        from translator.models import Language
         
         lang = Language(
             code='en',
             name='English',
-            native_name='English',
-            enabled=True
+            name_en='English',
+            is_enabled=True
         )
         
         result = lang.to_dict()
         
         self.assertEqual(result['code'], 'en')
         self.assertEqual(result['name'], 'English')
-        self.assertEqual(result['native_name'], 'English')
-        self.assertTrue(result['enabled'])
+        self.assertEqual(result['name_en'], 'English')
+        self.assertTrue(result['is_enabled'])
 
 
 if __name__ == '__main__':

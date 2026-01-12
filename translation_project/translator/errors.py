@@ -151,6 +151,10 @@ class TranslationError(Exception):
         self.http_status = get_http_status(code)
         super().__init__(self.message)
     
+    def __str__(self) -> str:
+        """字串表示"""
+        return f"{self.code}: {self.message}"
+    
     def to_dict(self) -> dict:
         """轉換為字典格式"""
         return {

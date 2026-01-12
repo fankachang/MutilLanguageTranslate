@@ -108,6 +108,8 @@ class TestTranslationResponse(unittest.TestCase):
         response = TranslationResponse(
             request_id='test-456',
             status=TranslationStatus.FAILED,
+            processing_time_ms=0,
+            execution_mode='cpu',
             error_code='VALIDATION_TEXT_TOO_LONG',
             error_message='文字超過長度限制'
         )

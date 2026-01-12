@@ -138,6 +138,19 @@ class ConfigLoader:
         return cls.get_language_by_code(code) is not None
     
     @classmethod
+    def is_language_supported(cls, code: str) -> bool:
+        """
+        檢查語言是否支援（別名方法）
+        
+        Args:
+            code: 語言代碼
+            
+        Returns:
+            是否為支援的語言
+        """
+        return cls.is_valid_language_code(code)
+    
+    @classmethod
     def get_default_source_language(cls) -> str:
         """取得預設來源語言"""
         config = cls.get_languages_config()

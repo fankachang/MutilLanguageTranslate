@@ -10,11 +10,12 @@
     {% load static %}
     
     <!-- 主要樣式 -->
+    <link rel="stylesheet" href="{% static 'translator/css/themes.css' %}">
     <link rel="stylesheet" href="{% static 'translator/css/main.css' %}">
     <link rel="stylesheet" href="{% static 'translator/css/error.css' %}">
     {% block extra_css %}{% endblock %}
     
-    <!-- 主題樣式 -->
+    <!-- 內嵌基礎樣式 -->
     <style>
         :root {
             /* 亮色主題（預設） */
@@ -261,6 +262,7 @@
     <script src="{% static 'translator/js/alpine.min.js' %}" defer></script>
     <script src="{% static 'translator/js/translation.js' %}"></script>
     <script src="{% static 'translator/js/validation.js' %}"></script>
+    <script src="{% static 'translator/js/settings.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

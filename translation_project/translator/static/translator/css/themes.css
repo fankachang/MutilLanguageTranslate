@@ -1,0 +1,444 @@
+/**
+ * 多國語言翻譯系統 - 主題樣式
+ * Themes Styles
+ * 
+ * 定義亮色與暗色主題的 CSS 變數
+ */
+
+/* ===== 亮色主題（預設） ===== */
+:root,
+.light {
+    /* 背景色 */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f5;
+    --bg-tertiary: #eeeeee;
+    --bg-overlay: rgba(0, 0, 0, 0.5);
+    
+    /* 文字色 */
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --text-inverse: #ffffff;
+    
+    /* 邊框色 */
+    --border-color: #e0e0e0;
+    --border-light: #f0f0f0;
+    --border-dark: #cccccc;
+    
+    /* 強調色 */
+    --accent-color: #2196F3;
+    --accent-hover: #1976D2;
+    --accent-light: #BBDEFB;
+    --accent-dark: #0D47A1;
+    
+    /* 狀態色 */
+    --success-color: #4caf50;
+    --success-light: #C8E6C9;
+    --success-dark: #2E7D32;
+    
+    --warning-color: #ff9800;
+    --warning-light: #FFE0B2;
+    --warning-dark: #E65100;
+    
+    --error-color: #f44336;
+    --error-light: #FFCDD2;
+    --error-dark: #C62828;
+    
+    --info-color: #2196F3;
+    --info-light: #BBDEFB;
+    --info-dark: #1565C0;
+    
+    /* 陰影 */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+    
+    /* 輸入框 */
+    --input-bg: #ffffff;
+    --input-border: #d0d0d0;
+    --input-focus-border: var(--accent-color);
+    --input-focus-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+    --input-placeholder: #999999;
+    
+    /* 卡片 */
+    --card-bg: #ffffff;
+    --card-border: #e0e0e0;
+    --card-shadow: var(--shadow-md);
+    
+    /* 導覽列 */
+    --navbar-bg: #ffffff;
+    --navbar-border: #e0e0e0;
+    --navbar-text: #333333;
+    --navbar-text-hover: var(--accent-color);
+    
+    /* 頁尾 */
+    --footer-bg: #f5f5f5;
+    --footer-text: #666666;
+    
+    /* 按鈕 */
+    --btn-primary-bg: var(--accent-color);
+    --btn-primary-text: #ffffff;
+    --btn-primary-hover: var(--accent-hover);
+    
+    --btn-secondary-bg: #f5f5f5;
+    --btn-secondary-text: #333333;
+    --btn-secondary-border: #d0d0d0;
+    --btn-secondary-hover: #e8e8e8;
+    
+    /* 程式碼 */
+    --code-bg: #f5f5f5;
+    --code-text: #c7254e;
+    --code-border: #e0e0e0;
+    
+    /* 表格 */
+    --table-header-bg: #f5f5f5;
+    --table-row-hover: #fafafa;
+    --table-border: #e0e0e0;
+    
+    /* 滾動條 */
+    --scrollbar-track: #f5f5f5;
+    --scrollbar-thumb: #cccccc;
+    --scrollbar-thumb-hover: #aaaaaa;
+}
+
+/* ===== 暗色主題 ===== */
+.dark {
+    /* 背景色 */
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --bg-tertiary: #3a3a3a;
+    --bg-overlay: rgba(0, 0, 0, 0.7);
+    
+    /* 文字色 */
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --text-tertiary: #707070;
+    --text-inverse: #1a1a1a;
+    
+    /* 邊框色 */
+    --border-color: #404040;
+    --border-light: #333333;
+    --border-dark: #505050;
+    
+    /* 強調色 */
+    --accent-color: #64B5F6;
+    --accent-hover: #42A5F5;
+    --accent-light: #1E3A5F;
+    --accent-dark: #90CAF9;
+    
+    /* 狀態色 */
+    --success-color: #66bb6a;
+    --success-light: #1B3B1B;
+    --success-dark: #81C784;
+    
+    --warning-color: #ffa726;
+    --warning-light: #3D2E0A;
+    --warning-dark: #FFB74D;
+    
+    --error-color: #ef5350;
+    --error-light: #3D1A1A;
+    --error-dark: #E57373;
+    
+    --info-color: #64B5F6;
+    --info-light: #1E3A5F;
+    --info-dark: #90CAF9;
+    
+    /* 陰影 */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5);
+    
+    /* 輸入框 */
+    --input-bg: #2d2d2d;
+    --input-border: #505050;
+    --input-focus-border: var(--accent-color);
+    --input-focus-shadow: 0 0 0 3px rgba(100, 181, 246, 0.2);
+    --input-placeholder: #707070;
+    
+    /* 卡片 */
+    --card-bg: #2d2d2d;
+    --card-border: #404040;
+    --card-shadow: var(--shadow-md);
+    
+    /* 導覽列 */
+    --navbar-bg: #1a1a1a;
+    --navbar-border: #333333;
+    --navbar-text: #e0e0e0;
+    --navbar-text-hover: var(--accent-color);
+    
+    /* 頁尾 */
+    --footer-bg: #1a1a1a;
+    --footer-text: #a0a0a0;
+    
+    /* 按鈕 */
+    --btn-primary-bg: var(--accent-color);
+    --btn-primary-text: #1a1a1a;
+    --btn-primary-hover: var(--accent-hover);
+    
+    --btn-secondary-bg: #3a3a3a;
+    --btn-secondary-text: #e0e0e0;
+    --btn-secondary-border: #505050;
+    --btn-secondary-hover: #454545;
+    
+    /* 程式碼 */
+    --code-bg: #2d2d2d;
+    --code-text: #ff7b7b;
+    --code-border: #404040;
+    
+    /* 表格 */
+    --table-header-bg: #2d2d2d;
+    --table-row-hover: #333333;
+    --table-border: #404040;
+    
+    /* 滾動條 */
+    --scrollbar-track: #2d2d2d;
+    --scrollbar-thumb: #505050;
+    --scrollbar-thumb-hover: #606060;
+}
+
+/* ===== 字體大小 ===== */
+.font-small {
+    --font-base: 14px;
+    --font-sm: 12px;
+    --font-lg: 16px;
+    --font-xl: 18px;
+    --line-height: 1.5;
+}
+
+.font-medium {
+    --font-base: 16px;
+    --font-sm: 14px;
+    --font-lg: 18px;
+    --font-xl: 20px;
+    --line-height: 1.6;
+}
+
+.font-large {
+    --font-base: 18px;
+    --font-sm: 16px;
+    --font-lg: 20px;
+    --font-xl: 24px;
+    --line-height: 1.7;
+}
+
+/* ===== 基礎元素主題套用 ===== */
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: var(--font-base, 16px);
+    line-height: var(--line-height, 1.6);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 連結 */
+a {
+    color: var(--accent-color);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+a:hover {
+    color: var(--accent-hover);
+}
+
+/* 選取反白 */
+::selection {
+    background-color: var(--accent-color);
+    color: var(--text-inverse);
+}
+
+/* 滾動條 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+/* Firefox 滾動條 */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* ===== 表單元素主題 ===== */
+input,
+textarea,
+select {
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+    border-color: var(--input-border);
+    transition: all 0.2s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--input-placeholder);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    border-color: var(--input-focus-border);
+    box-shadow: var(--input-focus-shadow);
+    outline: none;
+}
+
+/* ===== 按鈕主題 ===== */
+.btn-primary {
+    background-color: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: var(--btn-primary-hover);
+}
+
+.btn-secondary {
+    background-color: var(--btn-secondary-bg);
+    color: var(--btn-secondary-text);
+    border-color: var(--btn-secondary-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: var(--btn-secondary-hover);
+}
+
+/* ===== 卡片主題 ===== */
+.card {
+    background-color: var(--card-bg);
+    border-color: var(--card-border);
+    box-shadow: var(--card-shadow);
+}
+
+/* ===== 導覽列主題 ===== */
+.navbar {
+    background-color: var(--navbar-bg);
+    border-color: var(--navbar-border);
+}
+
+.navbar-brand,
+.nav-link {
+    color: var(--navbar-text);
+}
+
+.nav-link:hover {
+    color: var(--navbar-text-hover);
+}
+
+/* ===== 頁尾主題 ===== */
+.footer {
+    background-color: var(--footer-bg);
+    color: var(--footer-text);
+}
+
+/* ===== 程式碼區塊主題 ===== */
+code {
+    background-color: var(--code-bg);
+    color: var(--code-text);
+    border: 1px solid var(--code-border);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+pre {
+    background-color: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+}
+
+pre code {
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+/* ===== 主題切換動畫 ===== */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+    transition: background-color 0.3s ease,
+                color 0.3s ease,
+                border-color 0.3s ease,
+                box-shadow 0.3s ease !important;
+}
+
+/* ===== 系統主題偵測 ===== */
+@media (prefers-color-scheme: dark) {
+    :root:not(.light):not(.dark) {
+        /* 繼承暗色主題變數 */
+        --bg-primary: #1a1a1a;
+        --bg-secondary: #2d2d2d;
+        --text-primary: #e0e0e0;
+        --text-secondary: #a0a0a0;
+        --border-color: #404040;
+        --accent-color: #64B5F6;
+    }
+}
+
+/* ===== 無障礙性增強 ===== */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+}
+
+/* 高對比模式 */
+@media (prefers-contrast: high) {
+    :root,
+    .light {
+        --border-color: #333333;
+        --text-secondary: #444444;
+        --accent-color: #0066cc;
+    }
+    
+    .dark {
+        --border-color: #cccccc;
+        --text-secondary: #bbbbbb;
+        --accent-color: #66b3ff;
+    }
+    
+    .btn,
+    .form-control,
+    .card {
+        border-width: 2px;
+    }
+}
+
+/* ===== 列印樣式 ===== */
+@media print {
+    :root,
+    .dark {
+        --bg-primary: #ffffff;
+        --bg-secondary: #ffffff;
+        --text-primary: #000000;
+        --text-secondary: #333333;
+        --border-color: #cccccc;
+    }
+    
+    .navbar,
+    .footer,
+    .theme-toggle {
+        display: none !important;
+    }
+}

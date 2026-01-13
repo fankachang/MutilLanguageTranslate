@@ -1,0 +1,11 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+  <div class="module" style="margin-bottom: 1em;">
+    <h2 style="margin:0 0 0.5em 0;">系統管理</h2>
+    <ul>
+      <li><a href="/admin/status/">系統狀態監控</a></li>
+    </ul>
+  </div>
+  {{ block.super }}
+{% endblock %}

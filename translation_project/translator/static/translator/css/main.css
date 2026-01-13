@@ -162,6 +162,15 @@ select.form-control {
     font-size: 1rem;
     line-height: 1.6;
     white-space: pre-wrap;
+    text-align: left;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.result-text > span {
+    text-align: left;
+    width: 100%;
 }
 
 .result-empty {

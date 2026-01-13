@@ -79,10 +79,9 @@
             <div class="result-container" style="position: relative;">
                 <div 
                     class="result-text"
-                    style="min-height: 200px; color: var(--text-primary);"
-                >
+                    style="min-height: 200px; color: var(--text-primary); display: flex; align-items: flex-start; justify-content: flex-start;">
                     <span x-show="!translatedText && !isLoading" style="color: #6c757d; opacity: 1;"> </span>
-                    <span x-show="translatedText" x-text="translatedText" style="white-space: pre-wrap; color: var(--text-primary);"></span>
+                    <span x-show="translatedText" x-text="translatedText" style="white-space: pre-wrap; color: var(--text-primary); text-align: left; align-self: flex-start;"></span>
                 </div>
                 
                 <!-- 載入中覆蓋層 -->

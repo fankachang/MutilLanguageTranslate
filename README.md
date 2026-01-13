@@ -350,6 +350,10 @@ inference:
   top_p: 0.9
 ```
 
+## 界面範例
+
+![](./docs/images/Interfase.png)
+
 ## 授權
 
 MIT License

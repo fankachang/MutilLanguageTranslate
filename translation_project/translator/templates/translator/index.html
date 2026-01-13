@@ -14,7 +14,7 @@
                     <label for="source-lang" class="form-label">來源語言</label>
                     <select 
                         id="source-lang" 
-                        class="form-control"
+                        class="form-select"
                         x-model="sourceLang"
                         style="width: auto; min-width: 150px;"
                     >
@@ -35,7 +35,7 @@
                 placeholder="請輸入要翻譯的文字..."
                 x-model="sourceText"
                 @input="updateCharCount"
-                style="min-height: 200px;"
+                style="min-height: 200px; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;"
             ></textarea>
             
             <!-- 偵測到的語言 -->
@@ -55,7 +55,7 @@
                     <label for="target-lang" class="form-label">目標語言</label>
                     <select 
                         id="target-lang" 
-                        class="form-control"
+                        class="form-select"
                         x-model="targetLang"
                         style="width: auto; min-width: 150px;"
                     >
@@ -79,11 +79,10 @@
             <div class="result-container" style="position: relative;">
                 <div 
                     class="result-text"
-                    :class="{ 'result-empty': !translatedText }"
-                    style="min-height: 200px;"
+                    style="min-height: 200px; color: var(--text-primary);"
                 >
-                    <span x-show="!translatedText && !isLoading">翻譯結果將顯示在這裡...</span>
-                    <span x-show="translatedText" x-text="translatedText" style="white-space: pre-wrap;"></span>
+                    <span x-show="!translatedText && !isLoading" style="color: #6c757d; opacity: 1;"> </span>
+                    <span x-show="translatedText" x-text="translatedText" style="white-space: pre-wrap; color: var(--text-primary);"></span>
                 </div>
                 
                 <!-- 載入中覆蓋層 -->

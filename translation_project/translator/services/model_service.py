@@ -1,44 +1,43 @@
 """
 多國語言翻譯系統 - 模型服務
 
-本模組負責 TAIDE-LX-7B 模型的載入與推論：
-- 單例模式確保模型只載入一次
-- GPU/CPU 自動偵測與切換
-- 生成參數依品質模式配置
-- 載入失敗時的錯誤處理
+本模組負責模型的載入與推論，支援多種模式：
+- Local: 本地 Transformers 模型載入（GPU/CPU）
+- Remote: 遠端 API 呼叫（OpenAI 相容 / HuggingFace Inference）
+- 單例模式確保資源只初始化一次
 """
 
 import logging
 import threading
-from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 
-import torch
 from django.conf import settings
 
 from translator.enums import ExecutionMode, ModelStatus, QualityMode
 from translator.errors import ErrorCode, TranslationError
 from translator.utils.config_loader import ConfigLoader
+from translator.services.model_providers import (
+    BaseModelProvider,
+    LocalModelProvider,
+    RemoteAPIProvider,
+)
 
 logger = logging.getLogger('translator')
 
 
 class ModelService:
     """
-    TAIDE-LX-7B 模型服務
+    模型服務（單例模式）
     
-    單例模式實現，負責模型的載入、管理與推論。
+    負責模型的載入、管理與推論，支援本地與遠端模式
     """
     
     _instance: Optional['ModelService'] = None
     _lock = threading.Lock()
     
-    # 模型相關屬性
-    _model = None
-    _tokenizer = None
-    _device: str = None
-    _status: str = ModelStatus.NOT_LOADED
-    _error_message: Optional[str] = None
+    # Provider 相關屬性
+    _provider: Optional[BaseModelProvider] = None
+    _provider_type: Optional[str] = None
     
     def __new__(cls):
         if cls._instance is None:
@@ -57,126 +56,101 @@ class ModelService:
     @classmethod
     def get_status(cls) -> str:
         """取得模型狀態"""
-        return cls._status
+        if cls._provider is None:
+            return ModelStatus.NOT_LOADED
+        return cls._provider.get_status()
     
     @classmethod
     def get_execution_mode(cls) -> str:
-        """取得執行模式（GPU/CPU）"""
-        return cls._device or ExecutionMode.CPU
+        """取得執行模式（gpu/cpu/remote）"""
+        if cls._provider is None:
+            return ExecutionMode.CPU
+        return cls._provider.get_execution_mode()
     
     @classmethod
     def is_loaded(cls) -> bool:
         """檢查模型是否已載入"""
-        return cls._status == ModelStatus.LOADED
+        if cls._provider is None:
+            return False
+        return cls._provider.is_loaded()
     
     @classmethod
     def get_error_message(cls) -> Optional[str]:
         """取得錯誤訊息"""
-        return cls._error_message
+        if cls._provider is None:
+            return None
+        return cls._provider.get_error_message()
+    
+    @classmethod
+    def get_loading_progress(cls) -> float:
+        """取得模型載入進度百分比 (0.0-100.0)"""
+        if cls._provider is None:
+            return 0.0
+        return cls._provider.get_loading_progress()
+    
+    def set_progress_callback(self, callback: Optional[Callable[[float, str], None]]):
+        """
+        設定進度回呼函數（僅本地模式支援）
+        
+        Args:
+            callback: 回呼函數 (進度百分比, 訊息)
+        """
+        if self._provider and hasattr(self._provider, 'set_progress_callback'):
+            self._provider.set_progress_callback(callback)
+    
     
     def load_model(self) -> bool:
         """
-        載入模型
+        載入模型（根據設定檔選擇 provider）
         
         Returns:
             bool: 載入是否成功
         """
-        if self._status == ModelStatus.LOADED:
+        if self.is_loaded():
             logger.info("模型已載入，跳過重複載入")
             return True
         
-        if self._status == ModelStatus.LOADING:
-            logger.warning("模型正在載入中")
-            return False
-        
-        self._status = ModelStatus.LOADING
-        logger.info("開始載入 TAIDE-LX-7B 模型...")
-        
         try:
-            # 載入配置
+            # 讀取設定檔，決定使用哪種 provider
             config = ConfigLoader.get_model_config()
-            model_path = self._get_model_path(config)
+            provider_config = config.get('provider', {})
+            provider_type = provider_config.get('type', 'local')
             
-            if not model_path.exists():
-                raise FileNotFoundError(f"模型路徑不存在: {model_path}")
+            logger.info(f"準備載入模型（provider={provider_type}）...")
             
-            # 延遲導入 transformers 以加快啟動速度
-            from transformers import AutoModelForCausalLM, AutoTokenizer
-            
-            # 偵測 GPU 可用性
-            force_cpu = config.get('model', {}).get('force_cpu', False)
-            
-            if torch.cuda.is_available() and not force_cpu:
-                self._device = ExecutionMode.GPU
-                logger.info("偵測到 CUDA GPU，使用 GPU 模式")
-                
-                max_gpu_memory = config.get('model', {}).get('max_gpu_memory')
-                device_map_config = "auto"
-                
-                if max_gpu_memory:
-                    # 指定 GPU 記憶體上限
-                    max_memory = {0: f"{max_gpu_memory}GiB"}
-                else:
-                    max_memory = None
-                
-                self._model = AutoModelForCausalLM.from_pretrained(
-                    str(model_path),
-                    torch_dtype=torch.float16,
-                    device_map=device_map_config,
-                    max_memory=max_memory,
-                    trust_remote_code=True,
-                )
+            # 建立對應的 provider
+            if provider_type == 'local':
+                self.__class__._provider = LocalModelProvider(provider_config)
+                self.__class__._provider_type = 'local'
+            elif provider_type == 'openai':
+                self.__class__._provider = RemoteAPIProvider(provider_config, 'openai')
+                self.__class__._provider_type = 'openai'
+            elif provider_type == 'huggingface':
+                self.__class__._provider = RemoteAPIProvider(provider_config, 'huggingface')
+                self.__class__._provider_type = 'huggingface'
             else:
-                self._device = ExecutionMode.CPU
-                logger.info("使用 CPU 模式")
-                
-                self._model = AutoModelForCausalLM.from_pretrained(
-                    str(model_path),
-                    torch_dtype=torch.float32,
-                    device_map="cpu",
-                    trust_remote_code=True,
-                )
+                logger.error(f"不支援的 provider 類型: {provider_type}")
+                return False
             
-            # 載入 tokenizer
-            self._tokenizer = AutoTokenizer.from_pretrained(
-                str(model_path),
-                trust_remote_code=True,
-            )
+            # 載入模型
+            success = self._provider.load()
             
-            self._status = ModelStatus.LOADED
-            self._error_message = None
-            logger.info(f"模型載入成功，執行模式: {self._device}")
-            return True
+            if success:
+                logger.info(f"✓ 模型載入成功（provider={provider_type}）")
+                logger.info(f"  執行模式: {self.get_execution_mode()}")
+            
+            return success
             
         except Exception as e:
-            self._status = ModelStatus.ERROR
-            self._error_message = str(e)
             logger.error(f"模型載入失敗: {e}", exc_info=True)
             return False
     
-    def _get_model_path(self, config: Dict[str, Any]) -> Path:
-        """
-        取得模型路徑
-        
-        Args:
-            config: 模型配置
-            
-        Returns:
-            模型路徑
-        """
-        model_rel_path = config.get('model', {}).get(
-            'path',
-            'models/models--taide--TAIDE-LX-7B/snapshots/099c425ede93588d7df6e5279bd6b03f1371c979'
-        )
-        
-        # 從專案根目錄開始解析
-        project_root = settings.PROJECT_ROOT
-        return project_root / model_rel_path
     
     def generate(
         self,
         prompt: str,
         quality: str = QualityMode.STANDARD,
+        generation_overrides: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         執行文字生成
@@ -184,6 +158,7 @@ class ModelService:
         Args:
             prompt: 輸入提示
             quality: 品質模式
+            generation_overrides: 覆寫生成參數（選填）
             
         Returns:
             生成的文字
@@ -197,46 +172,23 @@ class ModelService:
         try:
             # 取得生成參數
             gen_params = self._get_generation_params(quality)
+
+            # 允許呼叫端覆寫參數
+            if generation_overrides:
+                gen_params = {**gen_params, **generation_overrides}
             
-            # 編碼輸入
-            inputs = self._tokenizer(
-                prompt,
-                return_tensors="pt",
-                truncation=True,
-                max_length=4096,
-            )
+            # 委派給 provider
+            return self._provider.generate(prompt, gen_params)
             
-            # 移動到正確的設備
-            if self._device == ExecutionMode.GPU:
-                inputs = {k: v.cuda() for k, v in inputs.items()}
-            
-            # 執行生成
-            with torch.no_grad():
-                outputs = self._model.generate(
-                    **inputs,
-                    **gen_params,
-                    pad_token_id=self._tokenizer.eos_token_id,
-                    do_sample=True,
-                )
-            
-            # 解碼輸出
-            generated_text = self._tokenizer.decode(
-                outputs[0],
-                skip_special_tokens=True,
-            )
-            
-            # 移除輸入部分，只保留生成的內容
-            if generated_text.startswith(prompt):
-                generated_text = generated_text[len(prompt):].strip()
-            
-            return generated_text
-            
+        except TranslationError:
+            raise
         except Exception as e:
             logger.error(f"文字生成失敗: {e}", exc_info=True)
             raise TranslationError(
                 ErrorCode.INTERNAL_ERROR,
                 f"文字生成失敗: {str(e)}"
             )
+    
     
     def _get_generation_params(self, quality: str) -> Dict[str, Any]:
         """
@@ -257,19 +209,34 @@ class ModelService:
                 'temperature': 0.7,
                 'top_p': 0.9,
                 'num_beams': 1,
-                'max_new_tokens': 512,
+                'do_sample': True,
+                'min_new_tokens': 1,
+                'max_new_tokens': 256,
+                'max_tokens': 256,  # 用於遠端 API
+                'repetition_penalty': 1.5,
+                'no_repeat_ngram_size': 3,
             },
             QualityMode.STANDARD: {
                 'temperature': 0.5,
                 'top_p': 0.85,
-                'num_beams': 2,
-                'max_new_tokens': 1024,
+                'num_beams': 1,
+                'do_sample': True,
+                'min_new_tokens': 1,
+                'max_new_tokens': 512,
+                'max_tokens': 512,
+                'repetition_penalty': 1.5,
+                'no_repeat_ngram_size': 3,
             },
             QualityMode.HIGH: {
                 'temperature': 0.3,
                 'top_p': 0.8,
                 'num_beams': 4,
-                'max_new_tokens': 2048,
+                'do_sample': False,
+                'min_new_tokens': 1,
+                'max_new_tokens': 1024,
+                'max_tokens': 1024,
+                'repetition_penalty': 1.5,
+                'no_repeat_ngram_size': 3,
             },
         }
         
@@ -277,30 +244,25 @@ class ModelService:
         quality_key = quality if quality in defaults else QualityMode.STANDARD
         params = generation_config.get(quality_key, defaults[quality_key])
         
-        return {
-            'temperature': params.get('temperature', defaults[quality_key]['temperature']),
-            'top_p': params.get('top_p', defaults[quality_key]['top_p']),
-            'num_beams': params.get('num_beams', defaults[quality_key]['num_beams']),
-            'max_new_tokens': params.get('max_new_tokens', defaults[quality_key]['max_new_tokens']),
-        }
+        # 合併預設值與配置值
+        result = {**defaults[quality_key]}
+        result.update(params)
+        
+        # Local provider 專用邏輯
+        num_beams = result.get('num_beams', 1)
+        if num_beams and int(num_beams) > 1:
+            result['do_sample'] = False  # beam search 時避免隨機採樣
+        
+        return result
     
     def unload_model(self):
         """卸載模型以釋放記憶體"""
         with self._lock:
-            if self._model is not None:
-                del self._model
-                self._model = None
+            if self._provider is not None:
+                self._provider.unload()
+                self._provider = None
             
-            if self._tokenizer is not None:
-                del self._tokenizer
-                self._tokenizer = None
-            
-            # 清理 GPU 記憶體
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            
-            self._status = ModelStatus.NOT_LOADED
-            self._device = None
+            self._provider_type = None
             logger.info("模型已卸載")
 
 

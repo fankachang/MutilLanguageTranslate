@@ -1,5 +1,5 @@
 # 多國語言翻譯系統依賴清單
-# Python 版本: 3.11+
+# Python 版本: 3.10
 
 # Web 框架
 Django>=4.2
@@ -9,9 +9,17 @@ uvicorn>=0.25.0
 transformers>=4.36.0
 torch>=2.1.0
 accelerate>=0.25.0
-
+# Tokenizer 相關
+protobuf>=3.20.0
+tiktoken>=0.5.0
+sentencepiece>=0.1.99
+# GPU 記憶體最佳化（可選，適用於 VRAM 受限的 GPU，例如 8GB 以下）
+bitsandbytes>=0.41.0  # 4-bit 量化支援（需 CUDA，Windows 可能需額外編譯工具）
 # 配置管理
 PyYAML>=6.0.1
+
+# HTTP 客戶端（用於遠端 API 呼叫）
+httpx>=0.27.0
 
 # 系統監控
 psutil>=5.9.0

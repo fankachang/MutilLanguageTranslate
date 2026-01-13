@@ -38,6 +38,31 @@
         <button type="button" class="error-close" @click="error = ''">&times;</button>
     </div>
     
+    <!-- 模型載入進度（若模型未載入） -->
+    <div x-show="modelLoading || (!modelLoaded && !modelLoadingComplete)" class="model-loading-container" style="margin-bottom: 20px; padding: 20px; background: #f5f5f5; border-radius: 8px; border-left: 4px solid #2196F3;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <div style="font-weight: bold; font-size: 16px;">🤖 模型載入中...</div>
+            <span style="font-size: 14px; color: #666;" x-text="modelLoadProgress.toFixed(1) + '%'"></span>
+        </div>
+        <div class="progress-bar" style="height: 8px;">
+            <div 
+                class="progress-bar-fill" 
+                :style="'width: ' + modelLoadProgress + '%'"
+            ></div>
+        </div>
+        <div style="margin-top: 8px; font-size: 13px; color: #666;" x-text="modelLoadMessage"></div>
+        <div x-show="!modelLoading && !modelLoaded" style="margin-top: 12px;">
+            <button 
+                type="button" 
+                class="btn btn-primary"
+                @click="startModelLoading"
+                :disabled="modelLoading"
+            >
+                開始載入模型
+            </button>
+        </div>
+    </div>
+    
     <!-- 狀態總覽 -->
     <div class="status-overview">
         <div class="status-card" :class="getHealthClass()">
@@ -214,6 +239,12 @@ function adminStatusApp() {
         error: '',
         autoRefresh: false,
         refreshInterval: null,
+        modelLoading: false,
+        modelLoaded: false,
+        modelLoadingComplete: false,
+        modelLoadProgress: 0,
+        modelLoadMessage: '',
+        progressCheckInterval: null,
         
         // 系統健康
         systemHealth: 'healthy',
@@ -258,6 +289,70 @@ function adminStatusApp() {
         
         async init() {
             await this.refresh();
+            this.checkModelLoadProgress();
+        },
+        
+        async startModelLoading() {
+            this.modelLoading = true;
+            this.modelLoadProgress = 0;
+            this.modelLoadMessage = '準備載入...';
+            
+            try {
+                const response = await fetch('/api/v1/admin/model/load-progress/', {
+                    method: 'POST',
+                });
+                
+                if (response.ok) {
+                    // 開始定期檢查進度
+                    this.checkModelLoadProgressLoop();
+                } else {
+                    this.error = '無法啟動模型載入';
+                    this.modelLoading = false;
+                }
+            } catch (e) {
+                console.error('啟動模型載入失敗:', e);
+                this.error = '無法連線到伺服器';
+                this.modelLoading = false;
+            }
+        },
+        
+        async checkModelLoadProgress() {
+            try {
+                const response = await fetch('/api/v1/admin/model/load-progress/');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.modelLoaded = data.loaded;
+                    this.modelLoadProgress = data.progress;
+                    
+                    if (data.model_status === 'loading') {
+                        this.modelLoading = true;
+                        this.modelLoadMessage = '模型載入中...';
+                    } else if (data.loaded) {
+                        this.modelLoading = false;
+                        this.modelLoaded = true;
+                        this.modelLoadProgress = 100;
+                        this.modelLoadMessage = '模型已成功載入！';
+                        this.modelLoadingComplete = true;
+                    } else if (data.error_message) {
+                        this.modelLoading = false;
+                        this.modelLoadMessage = `錯誤: ${data.error_message}`;
+                    }
+                }
+            } catch (e) {
+                console.error('檢查模型進度失敗:', e);
+            }
+        },
+        
+        checkModelLoadProgressLoop() {
+            // 每 500ms 檢查一次進度
+            this.progressCheckInterval = setInterval(() => {
+                this.checkModelLoadProgress();
+                
+                // 如果模型已載入，停止檢查
+                if (this.modelLoaded) {
+                    clearInterval(this.progressCheckInterval);
+                }
+            }, 500);
         },
         
         async refresh() {
@@ -283,6 +378,9 @@ function adminStatusApp() {
                     this.updateStatistics(statsData);
                 }
                 
+                // 檢查模型狀態
+                await this.checkModelLoadProgress();
+                
             } catch (e) {
                 console.error('重新整理失敗:', e);
                 this.error = '無法連線到伺服器';
@@ -298,6 +396,7 @@ function adminStatusApp() {
             // 模型狀態
             this.modelStatus = data.model?.loaded ? '已載入' : '未載入';
             this.executionMode = data.model?.execution_mode || '-';
+            this.modelLoaded = data.model?.loaded || false;
             
             // 佇列狀態
             const queue = data.queue || {};

@@ -25,4 +25,6 @@ urlpatterns = [
     # 管理 API（需 IP 白名單）
     path('admin/status/', views.admin_status, name='admin_status'),
     path('admin/statistics/', views.admin_statistics, name='admin_statistics'),
+    path('admin/model/load-progress/', views.admin_model_load_progress, name='admin_model_load_progress'),
+    path('admin/model/test/', views.admin_test_model, name='admin_test_model'),
 ]

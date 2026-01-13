@@ -565,3 +565,121 @@ def liveness_probe(request: HttpRequest) -> JsonResponse:
             'timestamp': datetime.utcnow().isoformat() + 'Z',
             'reasons': reasons,
         }, status=503)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def admin_model_load_progress(request: HttpRequest) -> JsonResponse:
+    """
+    GET /api/v1/admin/model/load-progress/
+    POST /api/v1/admin/model/load-progress/
+    
+    取得模型載入進度或觸發模型載入
+    
+    GET：取得當前進度（0.0-100.0）
+    POST：觸發模型載入（若模型尚未載入）
+    """
+    try:
+        from translator.services.model_service import get_model_service
+        
+        model_service = get_model_service()
+        
+        if request.method == 'POST':
+            # 觸發模型載入
+            if model_service.is_loaded():
+                return JsonResponse({
+                    'status': 'already_loaded',
+                    'progress': 100.0,
+                    'message': '模型已載入',
+                    'model_status': 'loaded',
+                }, status=200)
+            
+            # 在背景執行緒中載入
+            import threading
+            
+            def load_in_background():
+                model_service.load_model()
+            
+            loader_thread = threading.Thread(target=load_in_background, daemon=True)
+            loader_thread.start()
+            
+            return JsonResponse({
+                'status': 'loading',
+                'progress': model_service.get_loading_progress(),
+                'message': '模型載入已啟動',
+                'model_status': 'loading',
+            }, status=202)
+        
+        else:  # GET
+            # 取得當前進度
+            progress = model_service.get_loading_progress()
+            status = model_service.get_status()
+            
+            return JsonResponse({
+                'status': 'ok',
+                'progress': progress,
+                'model_status': status,
+                'loaded': model_service.is_loaded(),
+                'error_message': model_service.get_error_message(),
+            }, status=200)
+            
+    except Exception as e:
+        logger.error(f"模型載入進度 API 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def admin_test_model(request: HttpRequest) -> JsonResponse:
+    """
+    POST /api/v1/admin/model/test/
+    
+    測試載入小型模型（例如 gpt2）以驗證當前環境的載入/量化/offload 設定
+    
+    請求參數：
+    - model_name (可選): 要測試的模型名稱，預設為 'gpt2'
+    
+    回應：
+    - success: 測試是否成功
+    - message: 測試結果訊息
+    - model_info: 模型資訊（包括生成的文字、CUDA 可用性等）
+    """
+    try:
+        from translator.services.model_service import get_model_service
+        
+        # 解析請求參數
+        try:
+            data = json.loads(request.body) if request.body else {}
+        except json.JSONDecodeError:
+            data = {}
+        
+        model_name = data.get('model_name', 'gpt2')
+        
+        # 執行測試
+        model_service = get_model_service()
+        result = model_service.test_load_small_model(model_name)
+        
+        if result['success']:
+            return JsonResponse(result, status=200)
+        else:
+            return JsonResponse(result, status=500)
+            
+    except Exception as e:
+        logger.error(f"測試模型 API 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'success': False,
+                'message': f'測試模型時發生錯誤: {str(e)}',
+                'model_info': {},
+            },
+            status=500
+        )
+

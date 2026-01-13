@@ -1,5 +1,5 @@
-# 應用程式配置範本
-# 複製為 app_config.yaml 並修改相應設定
+# 應用程式配置
+# 複製自 app_config.yaml.example
 
 # 伺服器設定
 server:

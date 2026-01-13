@@ -270,10 +270,19 @@ class TranslationService:
         
         # 清理輸出
         cleaned_text = self._clean_output(raw_text)
-        translated_text = self._extract_best_translation_line(
-            cleaned_text or raw_text,
-            request.target_language,
-        )
+        
+        # 根據原文是否多行來決定處理方式
+        is_multiline_input = '\n' in request.text
+        if is_multiline_input:
+            # 多行輸入：保留完整清理後的結果（可能包含多行）
+            translated_text = cleaned_text or raw_text
+        else:
+            # 單行輸入：從清理後的結果中挑出最佳翻譯行
+            translated_text = self._extract_best_translation_line(
+                cleaned_text or raw_text,
+                request.target_language,
+            )
+        
         print(f"清理後輸出: {translated_text!r}")
         print(f"=== END DEBUG ===\n")
         translation_logger.info(
@@ -316,10 +325,16 @@ class TranslationService:
             print(f"\n=== RETRY DEBUG | ID={request.request_id} ===")
             print(f"重試原始輸出: {retry_raw!r}")
             retry_cleaned = self._clean_output(retry_raw)
-            retry_text = self._extract_best_translation_line(
-                retry_cleaned or retry_raw,
-                request.target_language,
-            )
+            
+            # 重試時也要考慮多行情況
+            if is_multiline_input:
+                retry_text = retry_cleaned or retry_raw
+            else:
+                retry_text = self._extract_best_translation_line(
+                    retry_cleaned or retry_raw,
+                    request.target_language,
+                )
+            
             print(f"重試清理後: {retry_text!r}")
             print(f"=== END RETRY ===\n")
             if retry_text and self._looks_like_target_language(retry_text, request.target_language):
@@ -513,16 +528,17 @@ class TranslationService:
             )
 
         return (
-            "[INST] 你是專業翻譯員。你的任務是『翻譯』，不是改寫或續寫。\n"
+            "[INST] 你是專業翻譯員。你的任務是『翻譯』，不是改寫、續寫或創作。\n"
             f"請將下列文字從 {source_name} 翻譯成 {target_name}。\n"
             "要求：\n"
-            "- 只輸出譯文，不要輸出任何其他文字。\n"
-            "- 不要解釋、不要求澄清、不提出問題。\n"
-            "- 不要產生章節、目錄或延伸內容。\n"
+            "- 只輸出譯文本身，不要輸出『答案：』等前綴。\n"
+            "- 不要輸出任何解釋、補充說明或延伸內容。\n"
+            "- 不要產生章節、標題、目錄或無關文字。\n"
+            "- 保持原文的行數和結構，不要增加或刪減內容。\n"
             f"{extra_constraints}"
             "\n原文：\n"
             f"{sanitized_text}\n"
-            "[/INST]"
+            "[/INST]\n譯文："
         )
     
     def _sanitize_text(self, text: str) -> str:
@@ -584,6 +600,32 @@ class TranslationService:
         if (cleaned.startswith('"') and cleaned.endswith('"')) or \
            (cleaned.startswith("'") and cleaned.endswith("'")):
             cleaned = cleaned[1:-1].strip()
+        
+        # 移除開頭的「答案：\n」或「答案:\n」前綴（模型常見輸出格式）
+        if cleaned.startswith(('答案：\n', '答案:\n', '答案： \n', '答案: \n')):
+            # 找到第一個換行後的位置，移除「答案：」前綴
+            first_newline = cleaned.find('\n')
+            if first_newline != -1:
+                cleaned = cleaned[first_newline + 1:].lstrip()
+        
+        # 移除開頭括號內的註解文字（例如：(不含標點符號)、(此為範例，不代表官方解答)）
+        # 這類註解通常出現在第一行，且獨立成一行
+        lines = cleaned.split('\n')
+        if lines and lines[0].strip().startswith('(') and ')' in lines[0]:
+            # 檢查第一行是否完全是括號註解
+            first_line = lines[0].strip()
+            if first_line.startswith('(') and first_line.endswith(')'):
+                # 移除第一行
+                cleaned = '\n'.join(lines[1:]).lstrip()
+            elif first_line.startswith('(') and ')' in first_line:
+                # 移除括號部分（例如 "(註解)實際內容" -> "實際內容"）
+                closing_paren = first_line.find(')')
+                remaining = first_line[closing_paren + 1:].lstrip()
+                if remaining:
+                    lines[0] = remaining
+                    cleaned = '\n'.join(lines)
+                else:
+                    cleaned = '\n'.join(lines[1:]).lstrip()
         
         # 定義需要截斷的標記（這些標記之後的內容都是重複或無關的）
         stop_markers = [

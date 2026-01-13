@@ -246,7 +246,8 @@ def admin_status(request: HttpRequest) -> JsonResponse:
         }
         
         # 取得佇列狀態
-        queue_status = queue_service.get_queue_status()
+        # QueueService 提供 get_queue_stats()，返回佇列統計字典
+        queue_status = queue_service.get_queue_stats()
         
         return JsonResponse({
             'status': 'ok',
@@ -288,12 +289,13 @@ def admin_statistics(request: HttpRequest) -> JsonResponse:
         from translator.services.statistics_service import get_statistics_service
         
         statistics_service = get_statistics_service()
-        stats = statistics_service.get_statistics()
-        
+        # 取得可序列化的完整統計字典
+        stats = statistics_service.get_full_statistics()
+
         return JsonResponse({
             'status': 'ok',
             'statistics': stats,
-        })
+        }, status=200)
         
     except Exception as e:
         logger.error(f"統計 API 發生錯誤: {e}", exc_info=True)
@@ -368,9 +370,10 @@ def health_check(request: HttpRequest) -> JsonResponse:
     # 3. 佇列服務檢查
     try:
         queue_service = get_queue_service()
-        queue_status = queue_service.get_queue_status()
-        
-        queue_size = queue_status.get('waiting', 0)
+        queue_stats = queue_service.get_queue_stats()
+
+        # 佇列目前等待中的請求數命名為 'queued_requests'
+        queue_size = queue_stats.get('queued_requests', 0)
         max_queue_size = 1000  # 假設佇列上限
         
         if queue_size < max_queue_size * 0.8:
@@ -488,8 +491,8 @@ def readiness_probe(request: HttpRequest) -> JsonResponse:
     # 檢查佇列容量
     try:
         queue_service = get_queue_service()
-        queue_status = queue_service.get_queue_status()
-        waiting = queue_status.get('waiting', 0)
+        queue_stats = queue_service.get_queue_stats()
+        waiting = queue_stats.get('queued_requests', 0)
         
         # 如果佇列超過 800 個待處理，暫停接收新請求
         if waiting >= 800:

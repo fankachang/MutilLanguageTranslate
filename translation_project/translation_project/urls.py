@@ -8,8 +8,12 @@ from django.contrib import admin
 from django.urls import include, path
 
 from translator.api.views import health_check, liveness_probe, readiness_probe
+from translator import views as translator_views
 
 urlpatterns = [
+    # 系統狀態頁（管理用） - 放在 admin/ 之前以避免被 admin.site.urls 覆蓋
+    path('admin/status/', translator_views.admin_status_page, name='admin_status_page'),
+
     # Django Admin
     path('admin/', admin.site.urls),
     

@@ -15,12 +15,12 @@
 
 ### 硬體需求
 
-| 項目 | 最低需求 | 建議配置 |
-|------|---------|---------|
-| CPU | 4 核心 | 8 核心以上 |
-| 記憶體 | 16 GB | 32 GB 以上 |
-| GPU | - | NVIDIA GPU (16GB+ VRAM) |
-| 磁碟 | 50 GB | 100 GB SSD |
+| 項目   | 最低需求 | 建議配置                |
+| ------ | -------- | ----------------------- |
+| CPU    | 4 核心   | 8 核心以上              |
+| 記憶體 | 16 GB    | 32 GB 以上              |
+| GPU    | -        | NVIDIA GPU (16GB+ VRAM) |
+| 磁碟   | 50 GB    | 100 GB SSD              |
 
 ### 軟體需求
 
@@ -202,7 +202,7 @@ podman run -d \
   translation-service
 ```
 
-### 使用 Docker Compose
+### 使用 Docker Compose（未完成）
 
 ```bash
 docker-compose up -d
@@ -212,29 +212,31 @@ docker-compose up -d
 
 ```
 MutilLanguageTranslate/
-├── config/                    # 配置檔目錄
-│   ├── app_config.yaml       # 應用程式配置
-│   ├── model_config.yaml     # 模型配置
-│   └── languages.yaml        # 語言定義
-├── logs/                      # 日誌目錄
-├── models/                    # 模型目錄
-├── translation_project/       # Django 專案
-│   ├── translation_project/  # 專案設定
+├── config/                          # 配置檔目錄
+│   ├── app_config.yaml              # 應用程式配置
+│   ├── model_config.yaml            # 模型配置
+│   └── languages.yaml               # 語言定義
+├── logs/                            # 日誌目錄
+├── models/                          # 模型目錄
+│   ├── TAIDE-LX-7B-Chat/            # 模型名稱一
+│   └── Llama-3.1-TAIDE-LX-8B-Chat/  # 模型名稱一
+├── translation_project/             # Django 專案
+│   ├── translation_project/         # 專案設定
 │   │   ├── settings.py
 │   │   ├── urls.py
 │   │   └── asgi.py
-│   └── translator/           # 翻譯應用程式
-│       ├── api/              # REST API
-│       ├── services/         # 服務層
-│       ├── templates/        # 前端模板
-│       ├── static/           # 靜態資源
-│       └── utils/            # 工具函數
-├── specs/                     # 規格文件
-├── tests/                     # 測試
-├── Containerfile             # 容器建置檔
-├── docker-compose.yaml       # Docker Compose
-├── requirements.txt          # Python 相依套件
-└── README.md                 # 本文件
+│   └── translator/                  # 翻譯應用程式
+│       ├── api/                     # REST API
+│       ├── services/                # 服務層
+│       ├── templates/               # 前端模板
+│       ├── static/                  # 靜態資源
+│       └── utils/                   # 工具函數
+├── specs/                           # 規格文件
+├── tests/                           # 測試
+├── Containerfile                    # 容器建置檔
+├── docker-compose.yaml              # Docker Compose
+├── requirements.txt                 # Python 相依套件
+└── README.md                        # 本文件
 ```
 
 ## API 文件
@@ -352,7 +354,9 @@ inference:
 
 ## 界面範例
 
-![](./docs/images/Interfase.png)
+![](./Docs/images/Interfase.png)
+![](./Docs/images/History.png)
+![](./Docs/images/Setting.png)
 
 ## 授權
 

@@ -704,6 +704,19 @@ class TranslationService:
            (cleaned.startswith("'") and cleaned.endswith("'")):
             cleaned = cleaned[1:-1].strip()
 
+        # 移除開頭殘留的原文字元（模型未完全翻譯的情況）
+        # 例如："I愛這世界" -> "愛這世界"（"I" 是原文 "I love" 的殘留）
+        # 只處理開頭 1-3 個非中文字元後緊接中文的情況
+        if len(cleaned) > 1:
+            # 檢查是否為「1-3個英文字母 + 中文」的模式
+            match = re.match(r'^([A-Za-z]{1,3})([\u4e00-\u9fff])', cleaned)
+            if match:
+                # 只有當第一個字母是常見的英文主詞（I, We, You, He, She, It, They）時才移除
+                english_part = match.group(1)
+                if english_part in ['I', 'We', 'You', 'He', 'She', 'It', 'They', 'My', 'Our', 'The', 'A', 'An']:
+                    cleaned = cleaned[len(english_part):]
+                    cleaned = cleaned.strip()
+
         # 移除開頭的「答案：\n」或「答案:\n」前綴（模型常見輸出格式）
         if cleaned.startswith(('答案：\n', '答案:\n', '答案： \n', '答案: \n')):
             # 找到第一個換行後的位置，移除「答案：」前綴

@@ -106,8 +106,8 @@ prompts:
   # === System Prompt 設定 ===
   # 是否使用 system prompt（<<SYS>> ... <</SYS>>）
   # 某些模型支援 system prompt 來設定角色和行為
-  use_system_prompt: false
-  system_prompt: "你是一個來自台灣的AI助理，樂於以台灣人的立場幫助使用者，會用繁體中文回答問題。"
+  use_system_prompt: true
+  system_prompt: "你是專業翻譯員。你的任務是『翻譯』，不是改寫、續寫或創作。"
 
   # === 翻譯 Prompt 範本 ===
   # 當 format_type=template 時使用

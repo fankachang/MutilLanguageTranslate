@@ -218,8 +218,8 @@ MutilLanguageTranslate/
 │   └── languages.yaml               # 語言定義
 ├── logs/                            # 日誌目錄
 ├── models/                          # 模型目錄
-│   ├── TAIDE-LX-7B-Chat/            # 模型名稱一
-│   └── Llama-3.1-TAIDE-LX-8B-Chat/  # 模型名稱一
+│   ├── TAIDE-LX-7B-Chat/            # 模型名稱一（建議使用，請自行下載）
+│   └── Llama-3.1-TAIDE-LX-8B-Chat/  # 模型名稱二（建議使用，請自行下載）
 ├── translation_project/             # Django 專案
 │   ├── translation_project/         # 專案設定
 │   │   ├── settings.py

@@ -10,12 +10,12 @@ provider:
 
   # Local Provider 設定
   local:
-    name: "TAIDE-LX-7B"
-    path: "models/models--taide--TAIDE-LX-7B/snapshots/099c425ede93588d7df6e5279bd6b03f1371c979"
-    force_cpu: false
+    name: "TAIDE-LX-7B-Chat"
+    path: "models/TAIDE-LX-7B-Chat"
+    force_cpu: false  # 使用 GPU + 4-bit 量化
     max_gpu_memory: 8
     quantization:
-      enable_4bit: true
+      enable_4bit: true  # 啟用 4-bit 量化（Windows 相容版 bitsandbytes 已安裝）
       load_in_4bit: true
       offload:
         device_map: "auto"
@@ -63,7 +63,7 @@ generation:
     max_tokens: 256
     repetition_penalty: 1.2  # 降低避免過度懲罰（原 1.5）
     no_repeat_ngram_size: 3
-  
+
   # 標準模式參數
   standard:
     temperature: 0.3  # 降低以提升穩定性（原 0.5）
@@ -75,7 +75,7 @@ generation:
     max_tokens: 512
     repetition_penalty: 1.2  # 降低避免過度懲罰（原 1.5）
     no_repeat_ngram_size: 3
-  
+
   # 高品質模式參數
   high:
     temperature: 0.2
@@ -90,14 +90,70 @@ generation:
 
 # Prompt 範本
 prompts:
-  # 翻譯 Prompt 範本 - 使用 TAIDE/Llama [INST] 格式
-  translation: |
-    [INST] 你是專業翻譯員。請將以下{source_language}文字翻譯成{target_language}。只輸出翻譯結果，不要輸出原文，不要解釋，不要續寫。
+  # === Prompt 格式設定 ===
+  # format_type 選項：
+  #   - template: 使用手動組裝的 prompt 樣版（如 [INST] ... [/INST]）
+  #   - chat_template: 使用 Huggingface tokenizer.apply_chat_template()
+  format_type: "chat_template"
 
+  # === BOS Token 設定 ===
+  # 是否在 prompt 前添加 <s> (BOS token)
+  # - Chat 模型通常需要（如 TAIDE-LX-7B-Chat）
+  # - 基礎預訓練模型可能不需要（如 TAIDE-LX-7B）
+  # 注意：使用 chat_template 時，tokenizer 會自動處理，此設定僅對 template 模式生效
+  add_bos_token: true
+
+  # === System Prompt 設定 ===
+  # 是否使用 system prompt（<<SYS>> ... <</SYS>>）
+  # 某些模型支援 system prompt 來設定角色和行為
+  use_system_prompt: false
+  system_prompt: "你是一個來自台灣的AI助理，樂於以台灣人的立場幫助使用者，會用繁體中文回答問題。"
+
+  # === 翻譯 Prompt 範本 ===
+  # 當 format_type=template 時使用
+  # 格式說明：
+  #   - 不含 <s>: [INST] 指令 [/INST]（適用於 tokenizer 自動添加 BOS 的情況）
+  #   - 含 <s>: <s>[INST] 指令 [/INST]（手動添加 BOS）
+  #   - 含 system: <s>[INST] <<SYS>>\n{sys}\n<</SYS>>\n\n{指令} [/INST]
+  # 可用變數：{source_language}, {target_language}, {text}
+  # 使用 |- 移除尾部換行符
+  translation: |-
+    [INST] 你是專業翻譯員。你的任務是『翻譯』，不是改寫、續寫或創作。
+    請將下列文字從 {source_language} 翻譯成 {target_language}。
+
+    要求：
+    - 只輸出譯文本身，不要輸出「譯文：」等前綴
+    - 不要輸出任何解釋、補充說明或延伸內容
+    - 不要產生章節、標題、目錄或無關文字
+    - 保持原文的行數和結構，不要增加或刪減內容
+
+    原文：
     {text} [/INST]
-  
-  # 語言偵測 Prompt 範本
-  language_detection: |
+
+  # === Chat Template 用的訊息內容 ===
+  # 當 format_type=chat_template 時使用
+  # 這是給 tokenizer.apply_chat_template() 的 user message 內容
+  translation_chat_content: |-
+    你是專業翻譯員。你的任務是『翻譯』，不是改寫、續寫或創作。
+    請將下列文字從 {source_language} 翻譯成 {target_language}。
+
+    要求：
+    - 只輸出譯文本身，不要輸出「譯文：」等前綴
+    - 不要輸出任何解釋、補充說明或延伸內容
+    - 不要產生章節、標題、目錄或無關文字
+    - 保持原文的行數和結構，不要增加或刪減內容
+
+    原文：
+    {text}
+
+  # === 語言偵測 Prompt 範本 ===
+  language_detection: |-
     [INST] 請識別以下文字的語言，只回答語言代碼（zh-TW, zh-CN, en, ja, ko, fr, de, es 其中之一）和信心分數（0.0-1.0），格式為「語言代碼:信心分數」。
 
     文字：{text} [/INST]
+
+  # 語言偵測的 chat template 內容
+  language_detection_chat_content: |-
+    請識別以下文字的語言，只回答語言代碼（zh-TW, zh-CN, en, ja, ko, fr, de, es 其中之一）和信心分數（0.0-1.0），格式為「語言代碼:信心分數」。
+
+    文字：{text}

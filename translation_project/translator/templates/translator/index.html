@@ -12,12 +12,8 @@
             <div class="panel-header">
                 <div class="language-selector">
                     <label for="source-lang" class="form-label">來源語言</label>
-                    <select 
-                        id="source-lang" 
-                        class="form-select"
-                        x-model="sourceLang"
-                        style="width: auto; min-width: 150px;"
-                    >
+                    <select id="source-lang" class="form-select" x-model="sourceLang"
+                        style="width: auto; min-width: 150px;">
                         <option value="auto">自動偵測</option>
                         {% for lang in languages %}
                         <option value="{{ lang.code }}">{{ lang.name }}</option>
@@ -28,16 +24,11 @@
                     <span x-text="charCount"></span> / 10,000 字元
                 </span>
             </div>
-            
-            <textarea 
-                id="source-text"
-                class="form-control"
-                placeholder="請輸入要翻譯的文字..."
-                x-model="sourceText"
+
+            <textarea id="source-text" class="form-control" placeholder="請輸入要翻譯的文字..." x-model="sourceText"
                 @input="updateCharCount"
-                style="min-height: 200px; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;"
-            ></textarea>
-            
+                style="min-height: 200px; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;"></textarea>
+
             <!-- 偵測到的語言 -->
             <div x-show="detectedLanguage" class="detected-language" style="margin-top: 8px;">
                 <span>偵測到：</span>
@@ -47,49 +38,35 @@
                 </span>
             </div>
         </div>
-        
+
         <!-- 目標文字區塊 -->
         <div class="translation-panel">
             <div class="panel-header">
                 <div class="language-selector">
                     <label for="target-lang" class="form-label">目標語言</label>
-                    <select 
-                        id="target-lang" 
-                        class="form-select"
-                        x-model="targetLang"
-                        style="width: auto; min-width: 150px;"
-                    >
+                    <select id="target-lang" class="form-select" x-model="targetLang"
+                        style="width: auto; min-width: 150px;">
                         {% for lang in languages %}
                         <option value="{{ lang.code }}">{{ lang.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <button 
-                    type="button" 
-                    class="btn btn-secondary"
-                    @click="copyResult"
-                    :disabled="!translatedText"
-                    x-show="translatedText"
-                    style="padding: 6px 12px; font-size: 0.875rem;"
-                >
+                <button type="button" class="btn btn-secondary" @click="copyResult" :disabled="!translatedText"
+                    x-show="translatedText" style="padding: 6px 12px; font-size: 0.875rem;">
                     📋 複製
                 </button>
             </div>
-            
+
             <div class="result-container" style="position: relative;">
-                <div 
-                    class="result-text"
-                    style="min-height: 200px; color: var(--text-primary); display: flex; align-items: flex-start; justify-content: flex-start;">
+                <div class="result-text" style="min-height: 200px; color: var(--text-primary); vertical-align: top;">
                     <span x-show="!translatedText && !isLoading" style="color: #6c757d; opacity: 1;"> </span>
-                    <span x-show="translatedText" x-text="translatedText" style="white-space: pre-wrap; color: var(--text-primary); text-align: left; align-self: flex-start;"></span>
+                    <span x-show="translatedText" x-text="translatedText"
+                        style="white-space: pre-wrap; color: var(--text-primary);"></span>
                 </div>
-                
+
                 <!-- 載入中覆蓋層 -->
-                <div 
-                    x-show="isLoading" 
-                    class="loading-overlay"
-                    style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background-color: rgba(255,255,255,0.8); border-radius: 6px;"
-                >
+                <div x-show="isLoading" class="loading-overlay"
+                    style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background-color: rgba(255,255,255,0.8); border-radius: 6px;">
                     <div class="loading-text">
                         <span class="spinner"></span>
                         <span>翻譯中...</span>
@@ -98,65 +75,38 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 動作按鈕區 -->
     <div class="action-buttons">
-        <button 
-            type="button"
-            class="swap-button"
-            @click="swapLanguages"
-            title="交換語言"
-            :disabled="sourceLang === 'auto'"
-        >
+        <button type="button" class="swap-button" @click="swapLanguages" title="交換語言" :disabled="sourceLang === 'auto'">
             ⇄
         </button>
-        
-        <button 
-            type="button"
-            class="btn btn-primary"
-            @click="translate"
-            :disabled="isLoading || !sourceText.trim()"
-        >
+
+        <button type="button" class="btn btn-primary" @click="translate" :disabled="isLoading || !sourceText.trim()">
             <span x-show="!isLoading">🌐 翻譯</span>
             <span x-show="isLoading">
                 <span class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></span>
                 處理中...
             </span>
         </button>
-        
-        <button 
-            type="button"
-            class="btn btn-secondary"
-            @click="clearAll"
-            :disabled="isLoading"
-        >
+
+        <button type="button" class="btn btn-secondary" @click="clearAll" :disabled="isLoading">
             🗑️ 清除
         </button>
     </div>
-    
+
     <!-- 錯誤訊息 -->
-    <div 
-        x-show="errorMessage" 
-        x-transition
-        class="error-message"
-        style="background-color: var(--error-color); color: white; padding: 12px 16px; border-radius: 6px; margin-top: 16px;"
-    >
+    <div x-show="errorMessage" x-transition class="error-message"
+        style="background-color: var(--error-color); color: white; padding: 12px 16px; border-radius: 6px; margin-top: 16px;">
         <strong>錯誤：</strong>
         <span x-text="errorMessage"></span>
-        <button 
-            type="button"
-            @click="errorMessage = ''"
-            style="float: right; background: none; border: none; color: white; cursor: pointer; font-size: 1.2rem;"
-        >&times;</button>
+        <button type="button" @click="errorMessage = ''"
+            style="float: right; background: none; border: none; color: white; cursor: pointer; font-size: 1.2rem;">&times;</button>
     </div>
-    
+
     <!-- 成功提示 -->
-    <div 
-        x-show="successMessage" 
-        x-transition
-        class="success-message"
-        style="background-color: var(--success-color); color: white; padding: 12px 16px; border-radius: 6px; margin-top: 16px;"
-    >
+    <div x-show="successMessage" x-transition class="success-message"
+        style="background-color: var(--success-color); color: white; padding: 12px 16px; border-radius: 6px; margin-top: 16px;">
         <span x-text="successMessage"></span>
     </div>
 </div>
@@ -164,193 +114,193 @@
 
 {% block extra_js %}
 <script>
-function translationApp() {
-    return {
-        // 狀態
-        sourceText: '',
-        translatedText: '',
-        sourceLang: 'auto',
-        targetLang: '{{ default_target_lang }}',
-        charCount: 0,
-        isLoading: false,
-        errorMessage: '',
-        successMessage: '',
-        detectedLanguage: null,
-        confidenceScore: null,
-        
-        // 語言名稱對照
-        languageNames: {
-            'zh-TW': '繁體中文',
-            'zh-CN': '簡體中文',
-            'en': '英文',
-            'ja': '日文',
-            'ko': '韓文',
-            'fr': '法文',
-            'de': '德文',
-            'es': '西班牙文',
-            'auto': '自動偵測',
-        },
-        
-        // 初始化
-        init() {
-            // 從 sessionStorage 讀取設定
-            const settings = JSON.parse(sessionStorage.getItem('userSettings') || '{}');
-            if (settings.defaultSourceLang) {
-                this.sourceLang = settings.defaultSourceLang;
-            }
-            if (settings.defaultTargetLang) {
-                this.targetLang = settings.defaultTargetLang;
-            }
-        },
-        
-        // 更新字數
-        updateCharCount() {
-            this.charCount = this.sourceText.length;
-        },
-        
-        // 取得語言名稱
-        getLanguageName(code) {
-            return this.languageNames[code] || code;
-        },
-        
-        // 交換語言
-        swapLanguages() {
-            if (this.sourceLang === 'auto') return;
-            
-            const temp = this.sourceLang;
-            this.sourceLang = this.targetLang;
-            this.targetLang = temp;
-            
-            // 也交換文字
-            if (this.translatedText) {
-                const tempText = this.sourceText;
-                this.sourceText = this.translatedText;
-                this.translatedText = tempText;
-                this.updateCharCount();
-            }
-        },
-        
-        // 執行翻譯
-        async translate() {
-            if (!this.sourceText.trim()) {
-                this.errorMessage = '請輸入要翻譯的文字';
-                return;
-            }
-            
-            if (this.charCount > 10000) {
-                this.errorMessage = '文字長度超過 10,000 字元，請縮短後再試';
-                return;
-            }
-            
-            this.isLoading = true;
-            this.errorMessage = '';
-            this.successMessage = '';
-            this.detectedLanguage = null;
-            this.confidenceScore = null;
-            
-            try {
-                const response = await fetch('/api/v1/translate/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        text: this.sourceText,
-                        source_language: this.sourceLang,
-                        target_language: this.targetLang,
-                        quality: sessionStorage.getItem('quality') || 'standard',
-                    }),
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.status === 'completed') {
-                    this.translatedText = data.translated_text;
-                    
-                    if (data.detected_language) {
-                        this.detectedLanguage = data.detected_language;
-                        this.confidenceScore = data.confidence_score;
+    function translationApp() {
+        return {
+            // 狀態
+            sourceText: '',
+            translatedText: '',
+            sourceLang: 'auto',
+            targetLang: '{{ default_target_lang }}',
+            charCount: 0,
+            isLoading: false,
+            errorMessage: '',
+            successMessage: '',
+            detectedLanguage: null,
+            confidenceScore: null,
+
+            // 語言名稱對照
+            languageNames: {
+                'zh-TW': '繁體中文',
+                'zh-CN': '簡體中文',
+                'en': '英文',
+                'ja': '日文',
+                'ko': '韓文',
+                'fr': '法文',
+                'de': '德文',
+                'es': '西班牙文',
+                'auto': '自動偵測',
+            },
+
+            // 初始化
+            init() {
+                // 從 sessionStorage 讀取設定
+                const settings = JSON.parse(sessionStorage.getItem('userSettings') || '{}');
+                if (settings.defaultSourceLang) {
+                    this.sourceLang = settings.defaultSourceLang;
+                }
+                if (settings.defaultTargetLang) {
+                    this.targetLang = settings.defaultTargetLang;
+                }
+            },
+
+            // 更新字數
+            updateCharCount() {
+                this.charCount = this.sourceText.length;
+            },
+
+            // 取得語言名稱
+            getLanguageName(code) {
+                return this.languageNames[code] || code;
+            },
+
+            // 交換語言
+            swapLanguages() {
+                if (this.sourceLang === 'auto') return;
+
+                const temp = this.sourceLang;
+                this.sourceLang = this.targetLang;
+                this.targetLang = temp;
+
+                // 也交換文字
+                if (this.translatedText) {
+                    const tempText = this.sourceText;
+                    this.sourceText = this.translatedText;
+                    this.translatedText = tempText;
+                    this.updateCharCount();
+                }
+            },
+
+            // 執行翻譯
+            async translate() {
+                if (!this.sourceText.trim()) {
+                    this.errorMessage = '請輸入要翻譯的文字';
+                    return;
+                }
+
+                if (this.charCount > 10000) {
+                    this.errorMessage = '文字長度超過 10,000 字元，請縮短後再試';
+                    return;
+                }
+
+                this.isLoading = true;
+                this.errorMessage = '';
+                this.successMessage = '';
+                this.detectedLanguage = null;
+                this.confidenceScore = null;
+
+                try {
+                    const response = await fetch('/api/v1/translate/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            text: this.sourceText,
+                            source_language: this.sourceLang,
+                            target_language: this.targetLang,
+                            quality: sessionStorage.getItem('quality') || 'standard',
+                        }),
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.status === 'completed') {
+                        this.translatedText = data.translated_text;
+
+                        if (data.detected_language) {
+                            this.detectedLanguage = data.detected_language;
+                            this.confidenceScore = data.confidence_score;
+                        }
+
+                        // 儲存到歷史記錄
+                        this.saveToHistory(data);
+
+                    } else if (data.status === 'queued') {
+                        this.errorMessage = `系統繁忙，您的請求在第 ${data.queue_position} 位，請稍候...`;
+                        // 可以在這裡實作輪詢
+
+                    } else if (data.error) {
+                        this.errorMessage = data.error.message || '翻譯失敗';
+
+                    } else {
+                        this.errorMessage = '翻譯失敗，請稍後再試';
                     }
-                    
-                    // 儲存到歷史記錄
-                    this.saveToHistory(data);
-                    
-                } else if (data.status === 'queued') {
-                    this.errorMessage = `系統繁忙，您的請求在第 ${data.queue_position} 位，請稍候...`;
-                    // 可以在這裡實作輪詢
-                    
-                } else if (data.error) {
-                    this.errorMessage = data.error.message || '翻譯失敗';
-                    
-                } else {
-                    this.errorMessage = '翻譯失敗，請稍後再試';
+
+                } catch (error) {
+                    console.error('翻譯錯誤:', error);
+                    this.errorMessage = '網路連線失敗，請檢查網路狀態';
+                } finally {
+                    this.isLoading = false;
                 }
-                
-            } catch (error) {
-                console.error('翻譯錯誤:', error);
-                this.errorMessage = '網路連線失敗，請檢查網路狀態';
-            } finally {
-                this.isLoading = false;
-            }
-        },
-        
-        // 複製結果
-        async copyResult() {
-            if (!this.translatedText) return;
-            
-            try {
-                await navigator.clipboard.writeText(this.translatedText);
-                this.successMessage = '已複製到剪貼簿！';
-                setTimeout(() => {
-                    this.successMessage = '';
-                }, 2000);
-            } catch (error) {
-                this.errorMessage = '複製失敗，請手動選取複製';
-            }
-        },
-        
-        // 清除全部
-        clearAll() {
-            this.sourceText = '';
-            this.translatedText = '';
-            this.charCount = 0;
-            this.errorMessage = '';
-            this.successMessage = '';
-            this.detectedLanguage = null;
-            this.confidenceScore = null;
-        },
-        
-        // 儲存到歷史記錄
-        saveToHistory(data) {
-            try {
-                let history = JSON.parse(sessionStorage.getItem('translationHistory') || '[]');
-                
-                const item = {
-                    id: data.request_id,
-                    originalText: this.sourceText.substring(0, 50) + (this.sourceText.length > 50 ? '...' : ''),
-                    translatedText: data.translated_text.substring(0, 50) + (data.translated_text.length > 50 ? '...' : ''),
-                    fullOriginalText: this.sourceText,
-                    fullTranslatedText: data.translated_text,
-                    sourceLang: this.sourceLang,
-                    targetLang: this.targetLang,
-                    detectedLang: data.detected_language || null,
-                    timestamp: new Date().toISOString(),
-                };
-                
-                // 加到開頭
-                history.unshift(item);
-                
-                // 最多保留 20 筆
-                if (history.length > 20) {
-                    history = history.slice(0, 20);
+            },
+
+            // 複製結果
+            async copyResult() {
+                if (!this.translatedText) return;
+
+                try {
+                    await navigator.clipboard.writeText(this.translatedText);
+                    this.successMessage = '已複製到剪貼簿！';
+                    setTimeout(() => {
+                        this.successMessage = '';
+                    }, 2000);
+                } catch (error) {
+                    this.errorMessage = '複製失敗，請手動選取複製';
                 }
-                
-                sessionStorage.setItem('translationHistory', JSON.stringify(history));
-            } catch (error) {
-                console.error('儲存歷史記錄失敗:', error);
-            }
-        },
-    };
-}
+            },
+
+            // 清除全部
+            clearAll() {
+                this.sourceText = '';
+                this.translatedText = '';
+                this.charCount = 0;
+                this.errorMessage = '';
+                this.successMessage = '';
+                this.detectedLanguage = null;
+                this.confidenceScore = null;
+            },
+
+            // 儲存到歷史記錄
+            saveToHistory(data) {
+                try {
+                    let history = JSON.parse(sessionStorage.getItem('translationHistory') || '[]');
+
+                    const item = {
+                        id: data.request_id,
+                        originalText: this.sourceText.substring(0, 50) + (this.sourceText.length > 50 ? '...' : ''),
+                        translatedText: data.translated_text.substring(0, 50) + (data.translated_text.length > 50 ? '...' : ''),
+                        fullOriginalText: this.sourceText,
+                        fullTranslatedText: data.translated_text,
+                        sourceLang: this.sourceLang,
+                        targetLang: this.targetLang,
+                        detectedLang: data.detected_language || null,
+                        timestamp: new Date().toISOString(),
+                    };
+
+                    // 加到開頭
+                    history.unshift(item);
+
+                    // 最多保留 20 筆
+                    if (history.length > 20) {
+                        history = history.slice(0, 20);
+                    }
+
+                    sessionStorage.setItem('translationHistory', JSON.stringify(history));
+                } catch (error) {
+                    console.error('儲存歷史記錄失敗:', error);
+                }
+            },
+        };
+    }
 </script>
 {% endblock %}

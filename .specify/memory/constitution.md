@@ -1,3 +1,23 @@
+<!--
+Sync Impact Report
+
+- Version change: 1.0.0 → 1.1.0
+- Modified principles:
+	- IV. Test-Driven Development (strengthened for live/regression work)
+	- VII. API-First Design (clarified rename/breaking change expectations)
+- Added sections:
+	- VIII. Interface Integrity & Identifier Stability
+- Removed sections: None
+- Templates requiring updates (✅ updated / ⚠ pending):
+	- ✅ .specify/templates/plan-template.md
+	- ✅ .specify/templates/tasks-template.md
+	- ✅ .specify/templates/spec-template.md
+	- ✅ .specify/templates/checklist-template.md (reviewed; no changes needed)
+- Commands requiring updates:
+	- ✅ .specify/templates/commands/*.md (not found in this repo)
+- Follow-up TODOs: None
+-->
+
 # TAIDE Translation System Constitution
 
 ## Core Principles
@@ -28,6 +48,8 @@ Testing is mandatory, not optional:
 - Integration tests: API contracts must be verified with integration tests
 - Performance tests: Load testing required for concurrency claims (100+ users)
 - Test structure: tests/unit/, tests/integration/, tests/performance/
+- Live system discipline: For bug fixes and behavior changes, write a failing regression test first
+- Red/Green: Tests MUST fail before the implementation change, then pass after
 
 ### V. Observability and Maintainability
 Systems must be debuggable and maintainable in production:
@@ -48,7 +70,17 @@ Public interfaces (APIs) are contracts and must be stable:
 - RESTful principles: Follow REST conventions for HTTP methods, status codes, resource naming
 - Schema validation: All request/response formats must be explicitly defined
 - Error consistency: Use standardized error codes and formats across all endpoints
-- Backward compatibility: Breaking changes require major version bump and migration guide
+- Backward compatibility: Breaking changes (including renames/removals) require major version bump and migration guide
+
+### VIII. Interface Integrity & Identifier Stability
+This is a live system; stability and correctness of integration is non-negotiable:
+- Do not arbitrarily rename functions, variables, classes, routes, template IDs, or settings keys
+- Renames are allowed ONLY when required by a feature or bug fix, and must:
+	- Update all call sites
+	- Preserve backward compatibility when the identifier is part of a public contract
+	- Include migration notes when compatibility cannot be preserved
+- No-hallucination integration: Frontend MUST only call backend endpoints/functions that actually exist
+- When adding new calls, confirm the backend route/function is implemented and wired (e.g., urls.py) before shipping
 
 ## Additional Constraints
 
@@ -113,5 +145,5 @@ Public interfaces (APIs) are contracts and must be stable:
 - CI/CD pipelines should automate constitution checks where possible (linting, test coverage)
 - Refer to [AGENTS.md](../../AGENTS.md) for agent-specific development guidance
 
-**Version**: 1.0.0 | **Ratified**: 2026-01-08 | **Last Amended**: 2026-01-08
+**Version**: 1.1.0 | **Ratified**: 2026-01-08 | **Last Amended**: 2026-01-21
 

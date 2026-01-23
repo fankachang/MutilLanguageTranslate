@@ -106,9 +106,9 @@ description: "Task list for feature implementation"
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T031 [P] 更新 README 的容器章節（移除「Compose 未完成」等過時描述，保持與 docker-compose.yaml 一致）於 README.md
-- [ ] T032 統一前端錯誤訊息呈現（模型切換/無可用模型/切換失敗）於 translation_project/translator/templates/translator/index.html
-- [ ] T033 以 quickstart.md 的步驟做一次端到端驗證並修正文件差異；同時記錄並回填 SC-001~SC-004 的驗收量測結果與環境條件（若時間門檻不穩定，至少需能重現量測方式）於 specs/002-model-switch-container/quickstart.md
+- [x] T031 [P] 更新 README 的容器章節（移除「Compose 未完成」等過時描述，保持與 docker-compose.yaml 一致）於 README.md
+- [x] T032 統一前端錯誤訊息呈現（模型切換/無可用模型/切換失敗）於 translation_project/translator/templates/translator/index.html
+- [x] T033 以 quickstart.md 的步驟做一次端到端驗證並修正文件差異；同時記錄並回填 SC-001~SC-004 的驗收量測結果與環境條件（若時間門檻不穩定，至少需能重現量測方式）於 specs/002-model-switch-container/quickstart.md
 
 ---
 

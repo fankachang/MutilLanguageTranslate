@@ -89,6 +89,7 @@
                 </template>
             </select>
             <span x-show="isSwitchingModel" class="text-secondary" style="font-size: 0.875rem;">切換中...</span>
+            <span x-show="!hasAvailableModels" style="font-size: 0.875rem; color: var(--error-color);">未偵測到可用模型</span>
         </div>
 
         <button type="button" class="swap-button" @click="swapLanguages" title="交換語言" :disabled="sourceLang === 'auto'">
@@ -96,7 +97,7 @@
         </button>
 
         <button type="button" class="btn btn-primary" @click="translate"
-            :disabled="isLoading || isSwitchingModel || !sourceText.trim()">
+            :disabled="isLoading || isSwitchingModel || !hasAvailableModels || !sourceText.trim()">
             <span x-show="!isLoading">🌐 翻譯</span>
             <span x-show="isLoading">
                 <span class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></span>
@@ -147,6 +148,7 @@
             models: [],
             selectedModelId: '',
             activeModelId: null,
+            hasAvailableModels: true,
 
             // 語言名稱對照
             languageNames: {
@@ -182,11 +184,22 @@
             async loadModels() {
                 try {
                     const response = await fetch('/api/v1/models/', { method: 'GET' });
-                    if (!response.ok) return;
+                    if (!response.ok) {
+                        this.models = [];
+                        this.activeModelId = null;
+                        this.hasAvailableModels = false;
+                        this.errorMessage = '無法取得可用模型清單，請稍後再試';
+                        return;
+                    }
 
                     const data = await response.json();
                     this.models = data.models || [];
                     this.activeModelId = data.active_model_id || null;
+                    this.hasAvailableModels = this.models.length > 0;
+
+                    if (!this.hasAvailableModels) {
+                        this.errorMessage = '未偵測到可用模型，請確認 models/<model_id>/config.json 是否存在';
+                    }
 
                     // 若目前選擇不在清單中，回退為預設
                     const availableIds = new Set(this.models.map(m => m.model_id));
@@ -196,11 +209,18 @@
                     }
                 } catch (e) {
                     console.warn('載入模型清單失敗:', e);
+                    this.models = [];
+                    this.activeModelId = null;
+                    this.hasAvailableModels = false;
+                    this.errorMessage = '載入模型清單失敗，請檢查網路或稍後再試';
                 }
             },
 
             async onModelSelected() {
                 sessionStorage.setItem('selectedModelId', this.selectedModelId || '');
+
+                this.errorMessage = '';
+                this.successMessage = '';
 
                 // 同步到 server session（可選）
                 if (!this.selectedModelId) {
@@ -272,6 +292,11 @@
 
             // 執行翻譯
             async translate() {
+                if (!this.hasAvailableModels) {
+                    this.errorMessage = '目前沒有可用模型，請先放入 models/<model_id>/config.json 後再試';
+                    return;
+                }
+
                 if (!this.sourceText.trim()) {
                     this.errorMessage = '請輸入要翻譯的文字';
                     return;

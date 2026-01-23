@@ -185,7 +185,9 @@ curl -X POST http://localhost:8000/api/v1/admin/model/test/ -H "Content-Type: ap
 
 造訪 http://localhost:8000 開始使用翻譯服務。
 
-## 容器部署
+## 容器部署（Podman / Docker / Compose）
+
+> 驗證重點：服務啟動後 `GET /api/health/` 需回 200。
 
 ### 使用 Podman
 
@@ -198,14 +200,35 @@ podman run -d \
   --name translation-service \
   -p 8000:8000 \
   -v ./models:/app/models:ro \
+  -v ./config:/app/config:ro \
   -v ./logs:/app/logs \
   translation-service
 ```
 
-### 使用 Docker Compose（未完成）
+### 使用 Docker
 
 ```bash
-docker-compose up -d
+docker build -t translation-service -f Containerfile .
+
+docker run -d \
+  --name translation-service \
+  -p 8000:8000 \
+  -v ./models:/app/models:ro \
+  -v ./config:/app/config:ro \
+  -v ./logs:/app/logs \
+  translation-service
+```
+
+### 使用 Docker Compose
+
+```bash
+docker compose -f docker-compose.yaml up -d
+```
+
+### 健康檢查
+
+```bash
+curl -f http://localhost:8000/api/health/
 ```
 
 ## 目錄結構

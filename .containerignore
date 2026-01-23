@@ -1,0 +1,36 @@
+# Podman/Buildah build context ignore
+# 與 .dockerignore 保持一致。
+
+.git
+.gitignore
+
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+*.log
+logs/
+db.sqlite3
+staticfiles/
+.pytest_cache/
+.coverage
+htmlcov/
+
+models/
+
+config/app_config.yaml
+config/model_config.yaml
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+*.tmp
+*.temp

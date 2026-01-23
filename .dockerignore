@@ -1,0 +1,43 @@
+# Docker build context ignore
+# 目標：避免把大模型/本機虛擬環境/雜項檔案打包進映像，縮短 build 時間並降低風險。
+
+# Git
+.git
+.gitignore
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Django / runtime
+*.log
+logs/
+db.sqlite3
+staticfiles/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Models (very large)
+models/
+
+# Config (可能包含敏感資訊)
+config/app_config.yaml
+config/model_config.yaml
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temp
+*.tmp
+*.temp

@@ -78,11 +78,24 @@
 
     <!-- 動作按鈕區 -->
     <div class="action-buttons">
+        <!-- 模型選擇（US1） -->
+        <div class="model-selector" style="display: flex; align-items: center; gap: 8px;">
+            <label for="model-select" class="form-label" style="margin: 0; white-space: nowrap;">模型</label>
+            <select id="model-select" class="form-select" x-model="selectedModelId" @change="onModelSelected"
+                style="width: auto; min-width: 220px;">
+                <option value="">（預設）</option>
+                <template x-for="m in models" :key="m.model_id">
+                    <option :value="m.model_id" x-text="m.display_name"></option>
+                </template>
+            </select>
+            <span x-show="isSwitchingModel" class="text-secondary" style="font-size: 0.875rem;">切換中...</span>
+        </div>
+
         <button type="button" class="swap-button" @click="swapLanguages" title="交換語言" :disabled="sourceLang === 'auto'">
             ⇄
         </button>
 
-        <button type="button" class="btn btn-primary" @click="translate" :disabled="isLoading || !sourceText.trim()">
+        <button type="button" class="btn btn-primary" @click="translate" :disabled="isLoading || isSwitchingModel || !sourceText.trim()">
             <span x-show="!isLoading">🌐 翻譯</span>
             <span x-show="isLoading">
                 <span class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></span>
@@ -123,10 +136,16 @@
             targetLang: '{{ default_target_lang }}',
             charCount: 0,
             isLoading: false,
+            isSwitchingModel: false,
             errorMessage: '',
             successMessage: '',
             detectedLanguage: null,
             confidenceScore: null,
+
+            // 模型
+            models: [],
+            selectedModelId: '',
+            activeModelId: null,
 
             // 語言名稱對照
             languageNames: {
@@ -150,6 +169,76 @@
                 }
                 if (settings.defaultTargetLang) {
                     this.targetLang = settings.defaultTargetLang;
+                }
+
+                // 模型選擇（sessionStorage）
+                this.selectedModelId = sessionStorage.getItem('selectedModelId') || '';
+
+                // 載入模型清單
+                this.loadModels();
+            },
+
+            async loadModels() {
+                try {
+                    const response = await fetch('/api/v1/models/', { method: 'GET' });
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    this.models = data.models || [];
+                    this.activeModelId = data.active_model_id || null;
+
+                    // 若目前選擇不在清單中，回退為預設
+                    const availableIds = new Set(this.models.map(m => m.model_id));
+                    if (this.selectedModelId && !availableIds.has(this.selectedModelId)) {
+                        this.selectedModelId = '';
+                        sessionStorage.removeItem('selectedModelId');
+                    }
+                } catch (e) {
+                    console.warn('載入模型清單失敗:', e);
+                }
+            },
+
+            async onModelSelected() {
+                sessionStorage.setItem('selectedModelId', this.selectedModelId || '');
+
+                // 同步到 server session（可選）
+                if (!this.selectedModelId) {
+                    return;
+                }
+
+                try {
+                    const selectionRes = await fetch('/api/v1/models/selection/', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model_id: this.selectedModelId }),
+                    });
+
+                    const selectionData = await selectionRes.json();
+                    if (!selectionRes.ok) {
+                        this.errorMessage = selectionData?.error?.message || '模型選擇失敗';
+                        return;
+                    }
+
+                    // 需要切換就觸發 switch（最小流程；後續任務會補齊更完整的狀態管理）
+                    if (selectionData.requires_switch) {
+                        this.isSwitchingModel = true;
+                        const switchRes = await fetch('/api/v1/models/switch/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ model_id: this.selectedModelId, force: false }),
+                        });
+                        const switchData = await switchRes.json();
+                        if (!switchRes.ok) {
+                            this.errorMessage = switchData?.error?.message || '模型切換失敗';
+                        } else {
+                            this.activeModelId = switchData.active_model_id;
+                        }
+                    }
+                } catch (e) {
+                    console.error('模型切換錯誤:', e);
+                    this.errorMessage = '模型切換失敗，請稍後再試';
+                } finally {
+                    this.isSwitchingModel = false;
                 }
             },
 
@@ -199,17 +288,22 @@
                 this.confidenceScore = null;
 
                 try {
+                    const payload = {
+                        text: this.sourceText,
+                        source_language: this.sourceLang,
+                        target_language: this.targetLang,
+                        quality: sessionStorage.getItem('quality') || 'standard',
+                    };
+                    if (this.selectedModelId) {
+                        payload.model_id = this.selectedModelId;
+                    }
+
                     const response = await fetch('/api/v1/translate/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({
-                            text: this.sourceText,
-                            source_language: this.sourceLang,
-                            target_language: this.targetLang,
-                            quality: sessionStorage.getItem('quality') || 'standard',
-                        }),
+                        body: JSON.stringify(payload),
                     });
 
                     const data = await response.json();

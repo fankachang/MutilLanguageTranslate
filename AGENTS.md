@@ -42,3 +42,6 @@
   ❌ Terminal A: Start-Sleep -Seconds 60  # 這會中斷背景服務！
   ❌ Terminal A: curl http://localhost:8000/  # 這也會中斷！
   ```
+
+* 虛擬環境
+  * 優先確認目前專案下是否有 .venv 或是 conda 建立的環境，若有則直接使用不進行重建環境

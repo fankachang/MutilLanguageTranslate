@@ -12,6 +12,7 @@ from translator.utils.config_loader import ConfigLoader
 import os
 import django
 import sys
+import json
 from pathlib import Path
 
 # 添加專案路徑
@@ -68,24 +69,42 @@ def test_prompt_building():
     print(prompt)
     print()
 
-    # 驗證格式
-    assert prompt.startswith('<s>'), "❌ Prompt 應該以 <s> 開頭"
-    assert '[INST]' in prompt, "❌ Prompt 應該包含 [INST]"
-    assert '[/INST]' in prompt, "❌ Prompt 應該包含 [/INST]"
+    # 驗證格式（依 prompts.format_type 分流）
+    model_config = ConfigLoader.get_model_config()
+    prompts = model_config.get('prompts', {})
+    format_type = prompts.get('format_type', 'template')
 
-    # 檢查 [/INST] 後面是否有提示詞（不應該有）
-    inst_end_pos = prompt.rfind('[/INST]')
-    after_inst = prompt[inst_end_pos + 7:]  # [/INST] 後的內容
+    if format_type == 'chat_template':
+        payload = json.loads(prompt)
+        assert payload.get('_format') == 'chat_template', "❌ chat_template Prompt 必須標記 _format=chat_template"
 
-    # [/INST] 後面應該只有空白字元，不應該有「譯文：」等提示詞
-    if after_inst.strip():  # 如果有非空白內容
-        print(f"警告：[/INST] 後面有內容: {repr(after_inst)}")
-        if '譯文：' in after_inst or '答案：' in after_inst or '回答：' in after_inst:
-            raise AssertionError("❌ [/INST] 後面不應該有提示詞")
+        messages = payload.get('messages', [])
+        assert isinstance(messages, list) and len(messages) >= 1, "❌ chat_template messages 應至少包含一則訊息"
 
-    print("✓ Prompt 格式驗證通過")
-    print(f"✓ [/INST] 後的內容: {repr(after_inst)}")
-    print()
+        user_messages = [m for m in messages if m.get('role') == 'user']
+        assert user_messages, "❌ chat_template messages 應包含 user role"
+        assert test_text in user_messages[-1].get('content', ''), "❌ user message 應包含原文"
+
+        print("✓ chat_template Prompt 驗證通過")
+        print()
+    else:
+        assert prompt.startswith('<s>'), "❌ Prompt 應該以 <s> 開頭"
+        assert '[INST]' in prompt, "❌ Prompt 應該包含 [INST]"
+        assert '[/INST]' in prompt, "❌ Prompt 應該包含 [/INST]"
+
+        # 檢查 [/INST] 後面是否有提示詞（不應該有）
+        inst_end_pos = prompt.rfind('[/INST]')
+        after_inst = prompt[inst_end_pos + 7:]  # [/INST] 後的內容
+
+        # [/INST] 後面應該只有空白字元，不應該有「譯文：」等提示詞
+        if after_inst.strip():  # 如果有非空白內容
+            print(f"警告：[/INST] 後面有內容: {repr(after_inst)}")
+            if '譯文：' in after_inst or '答案：' in after_inst or '回答：' in after_inst:
+                raise AssertionError("❌ [/INST] 後面不應該有提示詞")
+
+        print("✓ template Prompt 格式驗證通過")
+        print(f"✓ [/INST] 後的內容: {repr(after_inst)}")
+        print()
 
     # 測試案例 2: 帶額外約束的重試場景
     prompt_retry = service._build_translation_prompt(

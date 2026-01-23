@@ -90,6 +90,8 @@ Body：
 
 > 本次驗收重點：容器啟動後 `GET /api/health/` 必須回 200。
 
+備註：Containerfile 的啟動方式使用 `uvicorn` 預設 event loop（不強制 `uvloop`），避免在乾淨環境因缺少 uvloop 而啟動失敗。
+
 ### Podman
 
 ```bash

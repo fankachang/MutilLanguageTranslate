@@ -90,15 +90,15 @@ description: "Task list for feature implementation"
 
 ### Tests（先寫先失敗）
 
-- [ ] T025 [P] [US3] 單元測試：Containerfile 不應硬依賴未安裝的 uvloop（避免啟動即失敗）於 tests/unit/test_containerfile_runtime.py
-- [ ] T026 [P] [US3] 單元測試：docker-compose.yaml 具備必要 ports/volumes/healthcheck 設定於 tests/unit/test_docker_compose_config.py
-- [ ] T027 [P] [US3] 整合測試：`GET /api/health/` 回 200（不依賴容器）於 tests/integration/test_health_endpoint.py
+- [x] T025 [P] [US3] 單元測試：Containerfile 不應硬依賴未安裝的 uvloop（避免啟動即失敗）於 tests/unit/test_containerfile_runtime.py
+- [x] T026 [P] [US3] 單元測試：docker-compose.yaml 具備必要 ports/volumes/healthcheck 設定於 tests/unit/test_docker_compose_config.py
+- [x] T027 [P] [US3] 整合測試：`GET /api/health/` 回 200（不依賴容器）於 tests/integration/test_health_endpoint.py
 
 ### Implementation
 
-- [ ] T028 [US3] 修正 Containerfile 啟動參數（移除 `--loop uvloop` 或補齊 uvloop 依賴，二擇一並以測試鎖定）於 Containerfile
-- [ ] T029 [US3] 確認 docker-compose.yaml 具備 models/config/logs 掛載與 healthcheck（必要時修正）於 docker-compose.yaml
-- [ ] T030 [US3] 補齊容器驗證步驟文件（與現有 quickstart.md 一致）於 specs/002-model-switch-container/quickstart.md
+- [x] T028 [US3] 修正 Containerfile 啟動參數（移除 `--loop uvloop` 或補齊 uvloop 依賴，二擇一並以測試鎖定）於 Containerfile
+- [x] T029 [US3] 確認 docker-compose.yaml 具備 models/config/logs 掛載與 healthcheck（必要時修正）於 docker-compose.yaml
+- [x] T030 [US3] 補齊容器驗證步驟文件（與現有 quickstart.md 一致）於 specs/002-model-switch-container/quickstart.md
 
 **Checkpoint**: US3 可獨立驗收（容器 build/run/compose + healthcheck）
 

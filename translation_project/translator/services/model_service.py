@@ -38,6 +38,9 @@ class ModelService:
     # Provider 相關屬性
     _provider: Optional[BaseModelProvider] = None
     _provider_type: Optional[str] = None
+
+    # 模型識別（用於 UI/狀態呈現；實際載入路徑切換於後續任務實作）
+    _active_model_id: Optional[str] = None
     
     def __new__(cls):
         if cls._instance is None:
@@ -59,6 +62,28 @@ class ModelService:
         if cls._provider is None:
             return ModelStatus.NOT_LOADED
         return cls._provider.get_status()
+
+    @classmethod
+    def get_active_model_id(cls) -> Optional[str]:
+        """取得目前 active model id（可能為 None）。"""
+        return cls._active_model_id
+
+    @classmethod
+    def switch_model(cls, model_id: str, force: bool = False) -> Dict[str, Any]:
+        """切換 active model（最小實作）。
+
+        注意：此版本僅更新 active_model_id，不做真實模型 reload，避免在測試/CI 觸發大型載入。
+        後續任務（US1 Implementation）會補齊：鎖、兩階段切換、失敗回退、實際 provider 重新載入。
+        """
+        _ = force
+        with cls._lock:
+            previous = cls._active_model_id
+            cls._active_model_id = model_id
+            return {
+                "status": "switched",
+                "active_model_id": model_id,
+                "previous_model_id": previous,
+            }
     
     @classmethod
     def get_execution_mode(cls) -> str:

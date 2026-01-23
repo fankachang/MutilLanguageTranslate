@@ -318,7 +318,7 @@ function adminStatusApp() {
         
         async checkModelLoadProgress() {
             try {
-                const response = await fetch('/api/v1/admin/model/load-progress/');
+                const response = await fetch('/api/v1/model/load-progress/');
                 if (response.ok) {
                     const data = await response.json();
                     this.modelLoaded = data.loaded;
@@ -361,7 +361,7 @@ function adminStatusApp() {
             
             try {
                 // 取得系統狀態
-                const statusResponse = await fetch('/api/v1/admin/status/');
+                const statusResponse = await fetch('/api/v1/status/');
                 const statusData = await statusResponse.json();
                 
                 if (statusResponse.ok) {
@@ -371,7 +371,7 @@ function adminStatusApp() {
                 }
                 
                 // 取得統計資訊
-                const statsResponse = await fetch('/api/v1/admin/statistics/');
+                const statsResponse = await fetch('/api/v1/statistics/');
                 const statsData = await statsResponse.json();
                 
                 if (statsResponse.ok) {

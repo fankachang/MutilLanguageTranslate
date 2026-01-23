@@ -399,6 +399,124 @@ def models_switch(request: HttpRequest) -> JsonResponse:
 
 
 @require_http_methods(["GET"])
+def public_status(request: HttpRequest) -> JsonResponse:
+    """GET /api/v1/status/
+
+    公開系統狀態（匿名可用）。
+    沿用既有 admin_status 的回應 schema，避免狀態頁前端大改。
+    """
+    try:
+        from translator.services.model_service import get_model_service
+        from translator.services.monitor_service import get_monitor_service
+        from translator.services.queue_service import get_queue_service
+
+        monitor_service = get_monitor_service()
+        model_service = get_model_service()
+        queue_service = get_queue_service()
+
+        full_status = monitor_service.get_full_status()
+
+        model_status = {
+            'loaded': model_service.is_loaded(),
+            'name': 'TAIDE-LX-7B',
+            'execution_mode': model_service.get_execution_mode() if model_service.is_loaded() else None,
+            'active_model_id': getattr(model_service.__class__, '_active_model_id', None),
+        }
+
+        queue_status = queue_service.get_queue_stats()
+
+        return JsonResponse({
+            'status': 'ok',
+            'timestamp': full_status['timestamp'],
+            'system': full_status['system'],
+            'resources': {
+                'cpu': full_status['cpu'],
+                'memory': full_status['memory'],
+                'gpu': full_status['gpu'],
+                'disk': full_status['disk'],
+            },
+            'uptime': full_status['uptime'],
+            'model': model_status,
+            'queue': queue_status,
+        }, status=200)
+
+    except Exception as e:
+        logger.error(f"public_status 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
+        )
+
+
+@require_http_methods(["GET"])
+def public_statistics(request: HttpRequest) -> JsonResponse:
+    """GET /api/v1/statistics/
+
+    公開翻譯統計（匿名可用）。
+    """
+    try:
+        from translator.services.statistics_service import get_statistics_service
+
+        statistics_service = get_statistics_service()
+        stats = statistics_service.get_full_statistics()
+
+        return JsonResponse({
+            'status': 'ok',
+            'statistics': stats,
+        }, status=200)
+
+    except Exception as e:
+        logger.error(f"public_statistics 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
+        )
+
+
+@require_http_methods(["GET"])
+def public_model_load_progress(request: HttpRequest) -> JsonResponse:
+    """GET /api/v1/model/load-progress/
+
+    公開模型載入進度（匿名可用，只讀）。
+    觸發載入仍保留在 /api/v1/admin/model/load-progress/（POST）。
+    """
+    try:
+        from translator.services.model_service import get_model_service
+
+        model_service = get_model_service()
+
+        return JsonResponse({
+            'status': 'ok',
+            'progress': model_service.get_loading_progress(),
+            'model_status': model_service.get_status(),
+            'loaded': model_service.is_loaded(),
+            'error_message': model_service.get_error_message(),
+        }, status=200)
+
+    except Exception as e:
+        logger.error(f"public_model_load_progress 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
+        )
+
+
+@require_http_methods(["GET"])
 def admin_status(request: HttpRequest) -> JsonResponse:
     """
     GET /api/v1/admin/status/

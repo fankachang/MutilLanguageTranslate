@@ -68,15 +68,15 @@ description: "Task list for feature implementation"
 
 ### Tests（先寫先失敗）
 
-- [ ] T019 [P] [US2] 整合測試：匿名 GET `/admin/status/` 回 200 於 tests/integration/test_status_page_public.py
-- [ ] T020 [P] [US2] 整合測試：匿名 GET `/api/v1/status/`、`/api/v1/statistics/`、`/api/v1/model/load-progress/` 回 200 於 tests/integration/test_public_status_endpoints.py
-- [ ] T021 [P] [US2] 單元測試：狀態頁模板 fetch URL 已改為 public endpoints（避免打 `/api/v1/admin/*`）於 tests/unit/test_status_page_fetch_urls.py
+- [x] T019 [P] [US2] 整合測試：匿名 GET `/admin/status/` 回 200 於 tests/integration/test_status_page_public.py
+- [x] T020 [P] [US2] 整合測試：匿名 GET `/api/v1/status/`、`/api/v1/statistics/`、`/api/v1/model/load-progress/` 回 200 於 tests/integration/test_public_status_endpoints.py
+- [x] T021 [P] [US2] 單元測試：狀態頁模板 fetch URL 已改為 public endpoints（避免打 `/api/v1/admin/*`）於 tests/unit/test_status_page_fetch_urls.py
 
 ### Implementation
 
-- [ ] T022 [US2] 新增 public 只讀狀態 API（沿用既有 admin schema）於 translation_project/translator/api/views.py
-- [ ] T023 [US2] 註冊 public 狀態 API 路由於 translation_project/translator/api/urls.py
-- [ ] T024 [US2] 狀態頁模板改抓 public endpoints（保留具副作用的 admin 操作仍走 `/api/v1/admin/*`）於 translation_project/translator/templates/translator/admin_status.html
+- [x] T022 [US2] 新增 public 只讀狀態 API（沿用既有 admin schema）於 translation_project/translator/api/views.py
+- [x] T023 [US2] 註冊 public 狀態 API 路由於 translation_project/translator/api/urls.py
+- [x] T024 [US2] 狀態頁模板改抓 public endpoints（保留具副作用的 admin 操作仍走 `/api/v1/admin/*`）於 translation_project/translator/templates/translator/admin_status.html
 
 **Checkpoint**: US2 可獨立 Demo（匿名狀態頁可開啟且可讀取狀態資料）
 

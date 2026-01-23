@@ -86,6 +86,26 @@ def translate(request: HttpRequest) -> JsonResponse:
             if model_id not in available:
                 raise TranslationError(ErrorCode.MODEL_NOT_FOUND)
 
+            # 若使用者指定 model_id，且與目前 active model 不同：
+            # - policy=lazy：嘗試自動切換
+            # - policy=explicit：要求先呼叫切換 API
+            active_model_id = ModelService.get_active_model_id()
+            if active_model_id is not None and active_model_id != model_id:
+                model_config = ConfigLoader.get_model_config()
+                policy = (
+                    model_config.get('models', {})
+                    .get('switching', {})
+                    .get('policy', 'explicit')
+                )
+
+                if policy == 'lazy':
+                    ModelService.switch_model(model_id=model_id, force=False)
+                else:
+                    raise TranslationError(
+                        ErrorCode.MODEL_SWITCH_REJECTED,
+                        '目前模型尚未切換完成，請先切換模型後再翻譯',
+                    )
+
         # 建立翻譯請求
         translation_request = TranslationRequest(
             text=text,

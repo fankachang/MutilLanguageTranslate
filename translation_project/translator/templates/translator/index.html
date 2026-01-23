@@ -95,7 +95,8 @@
             ⇄
         </button>
 
-        <button type="button" class="btn btn-primary" @click="translate" :disabled="isLoading || isSwitchingModel || !sourceText.trim()">
+        <button type="button" class="btn btn-primary" @click="translate"
+            :disabled="isLoading || isSwitchingModel || !sourceText.trim()">
             <span x-show="!isLoading">🌐 翻譯</span>
             <span x-show="isLoading">
                 <span class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></span>

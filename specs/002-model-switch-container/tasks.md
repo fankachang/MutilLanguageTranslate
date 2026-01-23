@@ -16,19 +16,19 @@ description: "Task list for feature implementation"
 
 ## Phase 1: Setup（共用基礎設定）
 
-- [ ] T001 建立 pytest 設定於 pytest.ini（設定 `DJANGO_SETTINGS_MODULE=translation_project.settings`）
-- [ ] T002 [P] 新增 tests/conftest.py（提供 Django client、tmp models 目錄、override settings 等共用 fixture）
-- [ ] T003 [P] 補齊 tests/unit/__init__.py 與 tests/integration/__init__.py（若缺）
-- [ ] T004 [P] 建立測試用輔助工具 tests/helpers/model_fixtures.py（快速建立 `models/<id>/config.json` 目錄結構）
+- [x] T001 建立 pytest 設定於 pytest.ini（設定 `DJANGO_SETTINGS_MODULE=translation_project.settings`）
+- [x] T002 [P] 新增 tests/conftest.py（提供 Django client、tmp models 目錄、override settings 等共用 fixture）
+- [x] T003 [P] 補齊 tests/unit/__init__.py 與 tests/integration/__init__.py（若缺）
+- [x] T004 [P] 建立測試用輔助工具 tests/helpers/model_fixtures.py（快速建立 `models/<id>/config.json` 目錄結構）
 
 ---
 
 ## Phase 2: Foundational（阻塞性前置，所有 US 共用）
 
-- [ ] T005 新增模型識別驗證工具於 translation_project/translator/utils/model_id.py（拒絕 `..`、路徑分隔符、絕對路徑）
-- [ ] T006 擴充錯誤碼於 translation_project/translator/errors.py（新增：`MODEL_NOT_FOUND`、`MODEL_INVALID_ID`、`MODEL_SWITCH_IN_PROGRESS`、`MODEL_SWITCH_REJECTED`、`MODEL_SWITCH_FAILED`）
-- [ ] T007 [P] 更新 config/model_config.yaml.example（新增模型掃描/預設模型/切換政策設定鍵；保留向後相容預設）
-- [ ] T008 [P] 新增模型目錄掃描服務於 translation_project/translator/services/model_catalog_service.py（輸出 ModelEntry 清單）
+- [x] T005 新增模型識別驗證工具於 translation_project/translator/utils/model_id.py（拒絕 `..`、路徑分隔符、絕對路徑）
+- [x] T006 擴充錯誤碼於 translation_project/translator/errors.py（新增：`MODEL_NOT_FOUND`、`MODEL_INVALID_ID`、`MODEL_SWITCH_IN_PROGRESS`、`MODEL_SWITCH_REJECTED`、`MODEL_SWITCH_FAILED`）
+- [x] T007 [P] 更新 config/model_config.yaml.example（新增模型掃描/預設模型/切換政策設定鍵；保留向後相容預設）
+- [x] T008 [P] 新增模型目錄掃描服務於 translation_project/translator/services/model_catalog_service.py（輸出 ModelEntry 清單）
 
 **Checkpoint**: Foundation ready（T001-T008 完成後，US1/US2/US3 可並行開工）
 
@@ -42,19 +42,19 @@ description: "Task list for feature implementation"
 
 ### Tests（先寫先失敗）
 
-- [ ] T009 [P] [US1] 單元測試：模型掃描規則於 tests/unit/test_model_catalog_service.py
-- [ ] T010 [P] [US1] 整合測試：模型清單/選擇/切換 API 於 tests/integration/test_models_endpoints.py
-- [ ] T011 [P] [US1] 整合測試：翻譯 API 支援 `model_id`（不觸發真實大模型載入，使用 monkeypatch/mock）於 tests/integration/test_translate_with_model_id.py
-- [ ] T012 [P] [US1] 單元測試：翻譯頁模板包含模型選擇 UI 與切換中禁用邏輯（以字串/片段驗證）於 tests/unit/test_translation_page_model_ui.py
+- [x] T009 [P] [US1] 單元測試：模型掃描規則於 tests/unit/test_model_catalog_service.py
+- [x] T010 [P] [US1] 整合測試：模型清單/選擇/切換 API 於 tests/integration/test_models_endpoints.py
+- [x] T011 [P] [US1] 整合測試：翻譯 API 支援 `model_id`（不觸發真實大模型載入，使用 monkeypatch/mock）於 tests/integration/test_translate_with_model_id.py
+- [x] T012 [P] [US1] 單元測試：翻譯頁模板包含模型選擇 UI 與切換中禁用邏輯（以字串/片段驗證）於 tests/unit/test_translation_page_model_ui.py
 
 ### Implementation
 
-- [ ] T013 [US1] 擴充 ModelService 支援 active model id 與切換（兩階段提交、失敗回退、鎖避免並發切換）於 translation_project/translator/services/model_service.py
-- [ ] T014 [US1] 調整 LocalModelProvider 支援以 `provider.local.path` 指向任意 `models/<model_id>`（避免硬編碼 snapshot 路徑）於 translation_project/translator/services/model_providers/local_provider.py
-- [ ] T015 [US1] 新增模型相關 API：`GET /api/v1/models/`、`PUT /api/v1/models/selection/`、`POST /api/v1/models/switch/` 於 translation_project/translator/api/views.py
-- [ ] T016 [US1] 註冊模型相關路由於 translation_project/translator/api/urls.py
-- [ ] T017 [US1] 翻譯頁新增模型選擇元件與切換狀態（含：載入中提示、禁用翻譯按鈕、sessionStorage 保存選擇、翻譯 request 帶 `model_id`）於 translation_project/translator/templates/translator/index.html
-- [ ] T018 [US1] 翻譯 API 解析 `model_id`（可選）並在必要時觸發切換/或依政策回應錯誤（維持既有行為向後相容）於 translation_project/translator/api/views.py
+- [x] T013 [US1] 擴充 ModelService 支援 active model id 與切換（兩階段提交、失敗回退、鎖避免並發切換）於 translation_project/translator/services/model_service.py
+- [x] T014 [US1] 調整 LocalModelProvider 支援以 `provider.local.path` 指向任意 `models/<model_id>`（避免硬編碼 snapshot 路徑）於 translation_project/translator/services/model_providers/local_provider.py
+- [x] T015 [US1] 新增模型相關 API：`GET /api/v1/models/`、`PUT /api/v1/models/selection/`、`POST /api/v1/models/switch/` 於 translation_project/translator/api/views.py
+- [x] T016 [US1] 註冊模型相關路由於 translation_project/translator/api/urls.py
+- [x] T017 [US1] 翻譯頁新增模型選擇元件與切換狀態（含：載入中提示、禁用翻譯按鈕、sessionStorage 保存選擇、翻譯 request 帶 `model_id`）於 translation_project/translator/templates/translator/index.html
+- [x] T018 [US1] 翻譯 API 解析 `model_id`（可選）並在必要時觸發切換/或依政策回應錯誤（維持既有行為向後相容）於 translation_project/translator/api/views.py
 
 **Checkpoint**: US1 可獨立 Demo（模型清單顯示/切換/翻譯流程全通，且測試全綠）
 

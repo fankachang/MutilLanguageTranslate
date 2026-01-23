@@ -9,6 +9,7 @@
 
 import logging
 import threading
+from pathlib import Path
 from typing import Optional, Dict, Any, Callable
 
 from django.conf import settings
@@ -16,6 +17,8 @@ from django.conf import settings
 from translator.enums import ExecutionMode, ModelStatus, QualityMode
 from translator.errors import ErrorCode, TranslationError
 from translator.utils.config_loader import ConfigLoader
+from translator.services.model_catalog_service import ModelCatalogService
+from translator.utils.model_id import validate_model_id
 from translator.services.model_providers import (
     BaseModelProvider,
     LocalModelProvider,
@@ -28,34 +31,46 @@ logger = logging.getLogger('translator')
 class ModelService:
     """
     模型服務（單例模式）
-    
+
     負責模型的載入、管理與推論，支援本地與遠端模式
     """
-    
+
     _instance: Optional['ModelService'] = None
     _lock = threading.Lock()
-    
+
     # Provider 相關屬性
     _provider: Optional[BaseModelProvider] = None
     _provider_type: Optional[str] = None
 
     # 模型識別（用於 UI/狀態呈現；實際載入路徑切換於後續任務實作）
     _active_model_id: Optional[str] = None
-    
+
+    @staticmethod
+    def _derive_model_id_from_local_path(path_str: str) -> Optional[str]:
+        try:
+            p = Path(path_str)
+        except Exception:
+            return None
+
+        name = p.name
+        if not name or name.lower() == "models":
+            return None
+        return name
+
     def __new__(cls):
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
         return cls._instance
-    
+
     @classmethod
     def get_instance(cls) -> 'ModelService':
         """取得 ModelService 單例實例"""
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
-    
+
     @classmethod
     def get_status(cls) -> str:
         """取得模型狀態"""
@@ -70,107 +85,192 @@ class ModelService:
 
     @classmethod
     def switch_model(cls, model_id: str, force: bool = False) -> Dict[str, Any]:
-        """切換 active model（最小實作）。
+        """切換 active model（含失敗回退）。
 
-        注意：此版本僅更新 active_model_id，不做真實模型 reload，避免在測試/CI 觸發大型載入。
-        後續任務（US1 Implementation）會補齊：鎖、兩階段切換、失敗回退、實際 provider 重新載入。
+        設計重點：
+        - 使用鎖避免並發切換
+        - 以 unload→load 的方式避免同時常駐兩個大型模型（降低 OOM 風險）
+        - 若切換失敗，嘗試回退到先前模型（若可得）
         """
-        _ = force
+        model_id = validate_model_id(model_id)
+        available = {m.model_id for m in ModelCatalogService.list_models()}
+        if model_id not in available:
+            raise TranslationError(ErrorCode.MODEL_NOT_FOUND)
+
         with cls._lock:
-            previous = cls._active_model_id
-            cls._active_model_id = model_id
-            return {
-                "status": "switched",
-                "active_model_id": model_id,
-                "previous_model_id": previous,
-            }
-    
+            if (
+                cls._provider is not None
+                and cls._provider.get_status() == ModelStatus.LOADING
+                and not force
+            ):
+                raise TranslationError(ErrorCode.MODEL_SWITCH_IN_PROGRESS)
+
+            previous_model_id = cls._active_model_id
+
+            # 目前僅支援 local provider 的切換（remote provider 不具備本地目錄切換語意）
+            config = ConfigLoader.get_model_config()
+            provider_config = config.get('provider', {})
+            provider_type = provider_config.get('type', 'local')
+            if provider_type != 'local':
+                raise TranslationError(
+                    ErrorCode.MODEL_SWITCH_REJECTED,
+                    '目前 provider 不支援模型切換',
+                )
+
+            # 先卸載當前模型（避免同時常駐造成 OOM）；若要回退會再載回
+            if cls._provider is not None:
+                try:
+                    cls._provider.unload()
+                except Exception as e:
+                    logger.warning(f"卸載舊模型失敗（忽略繼續切換）: {e}")
+                finally:
+                    cls._provider = None
+                    cls._provider_type = None
+
+            def _make_local_provider_config(target_model_id: Optional[str]) -> Dict[str, Any]:
+                base = dict(provider_config)
+                local = dict(base.get('local', {}))
+                if target_model_id:
+                    local['path'] = f"models/{target_model_id}"
+                base['local'] = local
+                base['type'] = 'local'
+                return base
+
+            # 1) 載入目標模型
+            try:
+                new_provider = LocalModelProvider(
+                    _make_local_provider_config(model_id))
+                cls._provider = new_provider
+                cls._provider_type = 'local'
+
+                if not new_provider.load():
+                    raise TranslationError(
+                        ErrorCode.MODEL_SWITCH_FAILED, '模型載入失敗')
+
+                cls._active_model_id = model_id
+                return {
+                    "status": "switched",
+                    "active_model_id": model_id,
+                    "previous_model_id": previous_model_id,
+                }
+
+            except TranslationError:
+                # 2) 失敗回退：嘗試載回先前模型（若有），否則退回設定檔預設路徑
+                cls._provider = None
+                cls._provider_type = None
+                cls._active_model_id = previous_model_id
+
+                rollback_target = previous_model_id or cls._derive_model_id_from_local_path(
+                    str(provider_config.get('local', {}).get('path', ''))
+                )
+                if rollback_target:
+                    try:
+                        rollback_provider = LocalModelProvider(
+                            _make_local_provider_config(rollback_target)
+                        )
+                        cls._provider = rollback_provider
+                        cls._provider_type = 'local'
+                        rollback_provider.load()
+                    except Exception as e:
+                        logger.error(f"模型切換回退失敗: {e}", exc_info=True)
+
+                raise
+
     @classmethod
     def get_execution_mode(cls) -> str:
         """取得執行模式（gpu/cpu/remote）"""
         if cls._provider is None:
             return ExecutionMode.CPU
         return cls._provider.get_execution_mode()
-    
+
     @classmethod
     def is_loaded(cls) -> bool:
         """檢查模型是否已載入"""
         if cls._provider is None:
             return False
         return cls._provider.is_loaded()
-    
+
     @classmethod
     def get_error_message(cls) -> Optional[str]:
         """取得錯誤訊息"""
         if cls._provider is None:
             return None
         return cls._provider.get_error_message()
-    
+
     @classmethod
     def get_loading_progress(cls) -> float:
         """取得模型載入進度百分比 (0.0-100.0)"""
         if cls._provider is None:
             return 0.0
         return cls._provider.get_loading_progress()
-    
+
     def set_progress_callback(self, callback: Optional[Callable[[float, str], None]]):
         """
         設定進度回呼函數（僅本地模式支援）
-        
+
         Args:
             callback: 回呼函數 (進度百分比, 訊息)
         """
         if self._provider and hasattr(self._provider, 'set_progress_callback'):
             self._provider.set_progress_callback(callback)
-    
-    
+
     def load_model(self) -> bool:
         """
         載入模型（根據設定檔選擇 provider）
-        
+
         Returns:
             bool: 載入是否成功
         """
         if self.is_loaded():
             logger.info("模型已載入，跳過重複載入")
             return True
-        
+
         try:
             # 讀取設定檔，決定使用哪種 provider
             config = ConfigLoader.get_model_config()
             provider_config = config.get('provider', {})
             provider_type = provider_config.get('type', 'local')
-            
+
             logger.info(f"準備載入模型（provider={provider_type}）...")
-            
+
             # 建立對應的 provider
             if provider_type == 'local':
                 self.__class__._provider = LocalModelProvider(provider_config)
                 self.__class__._provider_type = 'local'
             elif provider_type == 'openai':
-                self.__class__._provider = RemoteAPIProvider(provider_config, 'openai')
+                self.__class__._provider = RemoteAPIProvider(
+                    provider_config, 'openai')
                 self.__class__._provider_type = 'openai'
             elif provider_type == 'huggingface':
-                self.__class__._provider = RemoteAPIProvider(provider_config, 'huggingface')
+                self.__class__._provider = RemoteAPIProvider(
+                    provider_config, 'huggingface')
                 self.__class__._provider_type = 'huggingface'
             else:
                 logger.error(f"不支援的 provider 類型: {provider_type}")
                 return False
-            
+
             # 載入模型
             success = self._provider.load()
-            
+
             if success:
                 logger.info(f"✓ 模型載入成功（provider={provider_type}）")
                 logger.info(f"  執行模式: {self.get_execution_mode()}")
-            
+
+                # 盡量同步 active_model_id（供 UI/狀態呈現使用）
+                if provider_type == 'local':
+                    local_path = provider_config.get(
+                        'local', {}).get('path', '')
+                    derived = self._derive_model_id_from_local_path(
+                        str(local_path))
+                    if derived:
+                        self.__class__._active_model_id = derived
+
             return success
-            
+
         except Exception as e:
             logger.error(f"模型載入失敗: {e}", exc_info=True)
             return False
-    
-    
+
     def generate(
         self,
         prompt: str,
@@ -179,21 +279,21 @@ class ModelService:
     ) -> str:
         """
         執行文字生成
-        
+
         Args:
             prompt: 輸入提示
             quality: 品質模式
             generation_overrides: 覆寫生成參數（選填）
-            
+
         Returns:
             生成的文字
-            
+
         Raises:
             TranslationError: 模型未載入或生成失敗
         """
         if not self.is_loaded():
             raise TranslationError(ErrorCode.MODEL_NOT_LOADED)
-        
+
         try:
             # 取得生成參數
             gen_params = self._get_generation_params(quality)
@@ -201,10 +301,10 @@ class ModelService:
             # 允許呼叫端覆寫參數
             if generation_overrides:
                 gen_params = {**gen_params, **generation_overrides}
-            
+
             # 委派給 provider
             return self._provider.generate(prompt, gen_params)
-            
+
         except TranslationError:
             raise
         except Exception as e:
@@ -213,21 +313,20 @@ class ModelService:
                 ErrorCode.INTERNAL_ERROR,
                 f"文字生成失敗: {str(e)}"
             )
-    
-    
+
     def _get_generation_params(self, quality: str) -> Dict[str, Any]:
         """
         取得生成參數
-        
+
         Args:
             quality: 品質模式
-            
+
         Returns:
             生成參數字典
         """
         config = ConfigLoader.get_model_config()
         generation_config = config.get('generation', {})
-        
+
         # 預設參數
         defaults = {
             QualityMode.FAST: {
@@ -264,29 +363,29 @@ class ModelService:
                 'no_repeat_ngram_size': 3,
             },
         }
-        
+
         # 從配置取得參數，若無則使用預設值
         quality_key = quality if quality in defaults else QualityMode.STANDARD
         params = generation_config.get(quality_key, defaults[quality_key])
-        
+
         # 合併預設值與配置值
         result = {**defaults[quality_key]}
         result.update(params)
-        
+
         # Local provider 專用邏輯
         num_beams = result.get('num_beams', 1)
         if num_beams and int(num_beams) > 1:
             result['do_sample'] = False  # beam search 時避免隨機採樣
-        
+
         return result
-    
+
     def unload_model(self):
         """卸載模型以釋放記憶體"""
         with self._lock:
             if self._provider is not None:
                 self._provider.unload()
                 self._provider = None
-            
+
             self._provider_type = None
             logger.info("模型已卸載")
 

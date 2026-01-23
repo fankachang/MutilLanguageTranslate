@@ -11,7 +11,8 @@ from pathlib import Path
 
 def test_index_template_contains_model_selector_and_api_calls():
     project_root = Path(__file__).resolve().parents[2]
-    template_path = project_root / "translation_project" / "translator" / "templates" / "translator" / "index.html"
+    template_path = project_root / "translation_project" / \
+        "translator" / "templates" / "translator" / "index.html"
 
     html = template_path.read_text(encoding="utf-8")
 

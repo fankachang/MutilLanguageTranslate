@@ -395,7 +395,7 @@ class LocalModelProvider(BaseModelProvider):
         local_config = self._config.get('local', {})
         model_rel_path = local_config.get(
             'path',
-            'models/models--taide--TAIDE-LX-7B/snapshots/099c425ede93588d7df6e5279bd6b03f1371c979'
+            'models/TAIDE-LX-7B-Chat'
         )
 
         project_root = settings.PROJECT_ROOT

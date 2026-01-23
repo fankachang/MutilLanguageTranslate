@@ -18,7 +18,8 @@ import pytest
 from tests.helpers.model_fixtures import create_model_dir
 
 # 加入專案路徑（比照既有 tests/integration/test_api.py）
-sys.path.insert(0, os.path.join(Path(__file__).parent, "../../translation_project"))
+sys.path.insert(0, os.path.join(
+    Path(__file__).parent, "../../translation_project"))
 
 
 @pytest.mark.django_db
@@ -26,8 +27,10 @@ def test_translate_request_passes_model_id_to_service(client, tmp_models_dir, mo
     create_model_dir(tmp_models_dir, "a", has_config=True)
 
     views = importlib.import_module("translator.api.views")
-    TranslationStatus = importlib.import_module("translator.enums").TranslationStatus
-    TranslationResponse = importlib.import_module("translator.models").TranslationResponse
+    TranslationStatus = importlib.import_module(
+        "translator.enums").TranslationStatus
+    TranslationResponse = importlib.import_module(
+        "translator.models").TranslationResponse
 
     captured = {}
 

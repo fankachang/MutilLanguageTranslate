@@ -61,6 +61,7 @@ def translate(request: HttpRequest) -> JsonResponse:
         source_language = data.get('source_language', 'auto')
         target_language = data.get('target_language')
         quality = data.get('quality', QualityMode.STANDARD)
+        model_id = data.get('model_id')
 
         # 驗證必要參數
         if not target_language:
@@ -78,12 +79,20 @@ def translate(request: HttpRequest) -> JsonResponse:
         if not QualityMode.is_valid(quality):
             quality = QualityMode.STANDARD
 
+        # 可選：驗證 model_id（保持向後相容：未提供則沿用既有行為）
+        if model_id is not None:
+            model_id = validate_model_id(model_id)
+            available = {m.model_id for m in ModelCatalogService.list_models()}
+            if model_id not in available:
+                raise TranslationError(ErrorCode.MODEL_NOT_FOUND)
+
         # 建立翻譯請求
         translation_request = TranslationRequest(
             text=text,
             source_language=source_language,
             target_language=target_language,
             quality=quality,
+            model_id=model_id,
             client_ip=get_client_ip(request),
         )
 

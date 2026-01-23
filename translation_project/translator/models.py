@@ -65,6 +65,7 @@ class TranslationRequest:
     target_language: str
     source_language: str = "auto"
     quality: str = "standard"
+    model_id: Optional[str] = None
     request_id: str = field(default_factory=lambda: str(uuid4()))
     client_ip: str = ""
     received_at: datetime = field(default_factory=datetime.utcnow)
@@ -76,15 +77,18 @@ class TranslationRequest:
     
     def to_dict(self) -> dict:
         """轉換為字典格式"""
-        return {
+        result = {
             'request_id': self.request_id,
             'text': self.text,
             'source_language': self.source_language,
             'target_language': self.target_language,
             'quality': self.quality,
+            'model_id': self.model_id,
             'client_ip': self.client_ip,
             'received_at': self.received_at.isoformat(),
         }
+
+        return result
 
 
 @dataclass

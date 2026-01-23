@@ -22,7 +22,7 @@
   - Demonstrated to users independently
 -->
 
-### User Story 1 - [Brief Title] (Priority: P1)
+### User Story 1 - 模型清單與切換翻譯 (Priority: P1)
 
 使用者可在翻譯頁面看到「可用模型清單」，並可切換模型後使用選定模型完成翻譯。
 
@@ -39,9 +39,11 @@
 
 ---
 
-### User Story 2 - [Brief Title] (Priority: P2)
+### User Story 2 - 狀態頁匿名可讀 (Priority: P2)
 
 任何使用者（不需登入、不需管理者權限）都能查看系統狀態頁面。
+
+系統狀態頁路徑為 `/admin/status/`（匿名可讀）。
 
 **Why this priority**: 需求明確要求移除管理者限制，避免在導入或展示時產生阻礙。
 
@@ -54,7 +56,7 @@
 
 ---
 
-### User Story 3 - [Brief Title] (Priority: P3)
+### User Story 3 - 容器化建置與啟動 (Priority: P3)
 
 維運/部署者可以用 Podman 或 Docker（含 Compose）建置映像並啟動服務，透過健康檢查確認服務可用。
 
@@ -75,11 +77,6 @@
 
 ### Edge Cases
 
-<!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right edge cases.
--->
-
 - 模型目錄下存在子目錄，但缺少必要的模型設定檔/資源時，不得列為可用模型。
 - 模型顯示在清單中，但使用者切換時載入失敗時：需顯示可理解的錯誤訊息，且系統可回退到先前可用模型。
 - 在模型切換進行中再次切換：介面應避免造成無回應或狀態混亂（例如佇列/取消前一次切換）。
@@ -87,11 +84,6 @@
 - 容器啟動但未掛載模型目錄：系統需以明確方式呈現「無可用模型」狀態，而非崩潰。
 
 ## Requirements *(mandatory)*
-
-<!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right functional requirements.
--->
 
 ### Functional Requirements
 
@@ -119,11 +111,6 @@
 - **Model Selection**: 代表使用者目前選定的模型（與使用者會話關聯），影響後續翻譯請求的結果來源。
 
 ## Success Criteria *(mandatory)*
-
-<!--
-  ACTION REQUIRED: Define measurable success criteria.
-  These must be technology-agnostic and measurable.
--->
 
 ### Measurable Outcomes
 

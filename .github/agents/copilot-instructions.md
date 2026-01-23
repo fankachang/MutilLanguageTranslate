@@ -4,6 +4,8 @@
 Auto-generated from all feature plans. Last updated: 2026-01-11
 
 ## Active Technologies
+- Python 3.11（Containerfile） + Django 4.2+、uvicorn（ASGI）、transformers/torch/accelerate（本地推論）、PyYAML（設定）、psutil（監控） (002-model-switch-container)
+- SQLite（Django 預設），快取（LocMemCache）用於佇列/統計；模型檔案以檔案系統（`models/`）存放 (002-model-switch-container)
 
 ### Language & Framework
 - **Python 3.11+**: 專案最低版本要求
@@ -118,6 +120,7 @@ uvicorn translation_project.asgi:application --host 0.0.0.0 --port 8000 --worker
 | `/api/health/` | GET | 健康檢查 |
 
 ## Recent Changes
+- 002-model-switch-container: Added Python 3.11（Containerfile） + Django 4.2+、uvicorn（ASGI）、transformers/torch/accelerate（本地推論）、PyYAML（設定）、psutil（監控）
 - 2026-01-11: 技術棧遷移至 Django 4.2+，移除 .NET 相關配置
 - 2026-01-11: Phase 0 & Phase 1 完成（研究、設計、契約）
 

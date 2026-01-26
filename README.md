@@ -86,20 +86,26 @@ pip install bitsandbytes
 
 ```bash
 # 複製範例配置檔
+
+# Linux/macOS/Git Bash
 cp config/app_config.yaml.example config/app_config.yaml
 cp config/model_config.yaml.example config/model_config.yaml
+
+# Windows PowerShell
+Copy-Item config/app_config.yaml.example config/app_config.yaml
+Copy-Item config/model_config.yaml.example config/model_config.yaml
 
 # 依據需求編輯配置檔
 ```
 
 ### 5. 下載模型
 
-模型會在首次啟動時自動下載，或可手動下載：
+本專案預設使用 **本機模型**（`provider.type: local`），且預設路徑為 `models/TAIDE-LX-7B-Chat`（見 `config/model_config.yaml`）。
 
-```bash
-# 模型將儲存於 models/ 目錄
-python -c "from transformers import AutoModelForCausalLM; AutoModelForCausalLM.from_pretrained('taide/TAIDE-LX-7B', cache_dir='./models')"
-```
+- 若 `models/` 目錄已包含模型資料夾（例如 `models/TAIDE-LX-7B-Chat/`、`models/Llama-3.1-TAIDE-LX-8B-Chat/`），可直接啟動服務。
+- 若 `models/` 尚未放置模型，請先把模型下載/放到對應路徑（必須包含 `config.json` 等檔案），否則載入時會因「模型路徑不存在」而失敗。
+
+備註：README 先前提到「首次啟動自動下載」不符合目前預設設定（目前預設是掃描/載入本機目錄）。如需改成遠端/自動下載模式，建議改用 `provider.type: openai`（或自行調整為 Hugging Face 來源）。
 
 ### 6. 啟動服務
 
@@ -196,10 +202,6 @@ curl -X POST http://localhost:8000/api/v1/admin/model/test/ -H "Content-Type: ap
 .venv\Scripts\python tests\quick_model_test.py
 ```
 
-### 7. 開啟瀏覽器
-
-造訪 http://localhost:8000 開始使用翻譯服務。
-
 ## 容器部署（Podman / Docker / Compose）
 
 > 驗證重點：服務啟動後 `GET /api/health/` 需回 200。
@@ -289,6 +291,246 @@ docker run -d \
 ```bash
 docker compose -f docker-compose.yaml up -d
 ```
+
+#### GPU 注意事項（Docker / Podman）
+
+- `docker-compose.yaml` 目前以 **CDI**（`nvidia.com/gpu=all`）的方式宣告 GPU。
+- 若你使用 Docker，需先安裝並正確設定 NVIDIA Container Toolkit（並啟用 CDI 或使用等效的 GPU 掛載方式），否則容器雖可啟動但無法使用 GPU。
+- 若你使用 Podman Desktop / Podman machine，請確認 VM 具備 GPU passthrough 與對應驅動支援。
+
+##### NVIDIA Container Toolkit（Linux）快速安裝/驗證（建議）
+
+> 不同發行版/版本安裝方式略有差異；以下以常見 Linux 發行版為例。若你不是在 Linux 上跑容器（例如 Windows 的 Docker Desktop / Podman machine），請以該平台的 GPU/WSL2 指南為準。
+
+1) **先確認主機端 NVIDIA 驅動可用**
+
+```bash
+nvidia-smi
+```
+
+2) **安裝 NVIDIA Container Toolkit**（參考官方文件）
+
+- https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
+3) **啟用/生成 CDI 設定**（讓 `nvidia.com/gpu=all` 可用）
+
+```bash
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+```
+
+4) **重啟容器引擎**
+
+- Docker：`sudo systemctl restart docker`
+- Podman：若使用 `podman`（rootless/rootful）與環境不同，請依你的服務管理方式重啟對應 daemon / machine
+
+5) **驗證 GPU 容器可用**
+
+```bash
+docker run --rm --gpus all nvidia/cuda:12.3.2-base-ubuntu22.04 nvidia-smi
+```
+
+##### Podman（Linux）完整步驟：安裝 NVIDIA Container Toolkit + CDI
+
+> 這份流程適用於「Podman 直接跑在 Linux 主機」的情境（不是 Windows 的 podman machine）。
+
+0) **確認主機已安裝 NVIDIA 驅動**
+
+```bash
+nvidia-smi
+```
+
+1) **安裝 nvidia-container-toolkit**
+
+- **Ubuntu / Debian**（建議依官方文件操作，會自動加 repo 與 key）
+
+  - 官方安裝指南：
+    - https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
+- **Fedora / RHEL / Rocky / Alma**
+
+  - 同上官方安裝指南（依你的發行版選擇對應章節）
+
+2) **生成 CDI 設定（讓 Podman 可用 `--device nvidia.com/gpu=all`）**
+
+```bash
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+```
+
+3) **重新啟動 / 重新進入 Podman session（視環境而定）**
+
+```bash
+podman info | head
+```
+
+4) **用 Podman 驗證 GPU 真的可用**
+
+```bash
+podman run --rm --device nvidia.com/gpu=all \
+  nvidia/cuda:12.3.2-base-ubuntu22.04 nvidia-smi
+```
+
+若你看到 GPU 資訊輸出（driver 版本、GPU 名稱），代表 nvidia-container-toolkit + CDI 已就緒。
+
+5) **接著再用本專案 compose 啟動**
+
+```bash
+podman compose -f docker-compose.yaml up -d
+```
+
+##### Podman machine（Windows / WSL2）注意事項
+
+- 需要先確保 **Windows 主機**已安裝支援 WSL2 GPU 的 NVIDIA 驅動，且在 WSL2 裡能跑 `nvidia-smi`。
+- `nvidia-container-toolkit` 也必須**安裝在 VM/WSL2 的 Linux 內**（不是裝在 Windows 本機），並在 Linux 內執行 `nvidia-ctk cdi generate`。
+- 若你的 podman machine 沒有 GPU passthrough 能力（常見），即使工具裝好也不一定能在 VM 內看到 GPU；此時建議改用「在 WSL2 內直接跑 Podman」或改用 Docker Desktop（若你的目標是 GPU 容器）。
+
+##### Windows（WSL2）+ podman machine：在 machine 內安裝（你目前預期的方式）
+
+> **能不能用 GPU，取決於 GPU 是否能被 podman machine 看到。**
+> 很多 Windows 的 podman machine 情境下，GPU 不一定能 passthrough 到 machine 內的 Linux VM。
+
+1) **先確認 Windows/WSL2 的 GPU 驅動就緒**
+
+- 確保已安裝「支援 WSL2」的 NVIDIA 驅動（建議用最新 Studio/Game Ready Driver）。
+- 在任一個 WSL2 發行版內驗證（如果你沒有 WSL2 發行版，可先安裝 Ubuntu）：
+
+```bash
+nvidia-smi
+```
+
+若這一步就失敗，請先把 WSL2 的 GPU 環境修好；否則後面在 podman machine 內也不會成功。
+
+2) **啟動並進入 podman machine**
+
+```powershell
+podman machine start
+podman machine ssh
+```
+
+3) **在 machine 內確認 GPU 裝置是否存在**
+
+在 machine 的 shell 內執行：
+
+```bash
+ls -l /dev/nvidia* 2>/dev/null || true
+ls -l /dev/dxg 2>/dev/null || true
+```
+
+- 若完全看不到任何 NVIDIA 相關裝置，代表 GPU 目前沒有 passthrough 到 machine：這種情況下，安裝 toolkit 也無法讓 GPU magically 出現。
+- 若能看到裝置，才建議繼續往下做。
+
+4) **辨識 machine 的 Linux 類型（決定用哪個套件管理器）**
+
+```bash
+cat /etc/os-release
+command -v apt-get || true
+command -v dnf || true
+command -v rpm-ostree || true
+```
+
+5) **安裝 nvidia-container-toolkit（依發行版）**
+
+- **Ubuntu（apt；含 WSL2 podman machine 常見情境）**：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
+
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+  | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+  | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+  | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+```
+
+- 若 machine 內有 `dnf`（Fedora/RHEL 類）：
+
+```bash
+sudo dnf install -y ca-certificates curl
+sudo curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
+  -o /etc/yum.repos.d/nvidia-container-toolkit.repo
+sudo dnf install -y nvidia-container-toolkit
+```
+
+- 若 machine 內只有 `rpm-ostree`（例如 CoreOS/不可變系統）：
+
+  - 這類系統「不一定」適合/支援直接用上述方式安裝。
+  - 建議改走「在 WSL2 發行版內直接安裝 Podman」的路徑（見下方替代方案）。
+
+6) **生成 CDI 設定**
+
+```bash
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+```
+
+（建議）若是在 **podman machine** 內操作，生成 CDI 後可以退出並重啟 machine，確保 device 設定被重新載入：
+
+```powershell
+exit
+podman machine stop
+podman machine start
+podman machine ssh
+```
+
+7) **在 machine 內用 Podman 驗證**
+
+```bash
+podman run --rm --device nvidia.com/gpu=all \
+  nvidia/cuda:12.3.2-base-ubuntu22.04 nvidia-smi
+```
+
+若你在這一步遇到權限/SELinux 相關錯誤，可嘗試：
+
+- 改用 rootful：`sudo podman run ...`
+- 或暫時加上：`--security-opt=label=disable`
+
+8) **再回到 Windows 端啟動 compose**
+
+```powershell
+podman compose -f docker-compose.yaml up -d
+```
+
+##### 替代方案（通常更穩）：在 WSL2 發行版內直接跑 Podman（不使用 podman machine）
+
+如果你的 podman machine 無法看到 GPU，最常見的可行做法是：
+
+1) 在 WSL2（Ubuntu）內安裝 Podman
+2) 在同一個 WSL2 內安裝 `nvidia-container-toolkit` 並生成 CDI
+3) 直接在該 WSL2 內執行 `podman run --device nvidia.com/gpu=all ...`
+
+這樣容器跑在 WSL2 distro 內，比較容易吃到 WSL2 的 GPU 支援。
+
+##### Linux（Ubuntu）原生 Podman：Ubuntu（apt）安裝命令
+
+若是在「Ubuntu Linux 主機」直接跑 Podman（不是 Windows podman machine），安裝 toolkit 也可用同一套 apt 指令：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
+
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+  | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+  | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+  | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+
+podman run --rm --device nvidia.com/gpu=all \
+  nvidia/cuda:12.3.2-base-ubuntu22.04 nvidia-smi
+```
+
+##### 若 CDI 尚未就緒怎麼辦？
+
+- 若短期內只想先跑起來且不想處理 CDI，也可以改用 Docker 的 `--gpus all`（但這需要調整 compose 或改用 `docker run`）。
+- 本專案 compose 目前使用 CDI 宣告；若你希望我幫你補一份「Docker 非 CDI」版本的 compose（例如 `deploy.resources.reservations.devices` 或 runtime 設定），告訴我你的 Docker 版本與 OS，我可以直接加檔。
 
 ### 健康檢查
 

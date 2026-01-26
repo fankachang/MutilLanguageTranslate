@@ -40,13 +40,28 @@
             <div style="font-weight: bold; font-size: 16px;">🤖 模型載入中...</div>
             <span style="font-size: 14px; color: #666;" x-text="modelLoadProgress.toFixed(1) + '%'"></span>
         </div>
+        <!-- 模型選擇（只放在狀態頁） -->
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+            <label for="admin-model-select" style="font-size: 14px; color: #333; font-weight: 600;">要啟動的模型</label>
+            <select id="admin-model-select" class="form-select" x-model="selectedModelId"
+                style="width: auto; min-width: 260px;">
+                <option value="">（請選擇）</option>
+                <template x-for="m in models" :key="m.model_id">
+                    <option :value="m.model_id" x-text="m.display_name"></option>
+                </template>
+            </select>
+            <span style="font-size: 13px; color: #666;" x-show="activeModelId">目前 active：<span
+                    x-text="activeModelId"></span></span>
+            <span style="font-size: 13px; color: #b00020;" x-show="!hasAvailableModels">未偵測到可用模型</span>
+        </div>
         <div class="progress-bar" style="height: 8px;">
             <div class="progress-bar-fill" :style="'width: ' + modelLoadProgress + '%'"></div>
         </div>
         <div style="margin-top: 8px; font-size: 13px; color: #666;" x-text="modelLoadMessage"></div>
         <div x-show="!modelLoading && !modelLoaded" style="margin-top: 12px;">
-            <button type="button" class="btn btn-primary" @click="startModelLoading" :disabled="modelLoading">
-                開始載入模型
+            <button type="button" class="btn btn-primary" @click="startModelLoading"
+                :disabled="modelLoading || !selectedModelId">
+                選擇後開始載入
             </button>
         </div>
     </div>
@@ -222,6 +237,12 @@
             modelLoadMessage: '',
             progressCheckInterval: null,
 
+            // 模型清單（for selection）
+            models: [],
+            selectedModelId: '',
+            activeModelId: null,
+            hasAvailableModels: true,
+
             // 系統健康
             systemHealth: 'healthy',
             uptime: '-',
@@ -265,7 +286,36 @@
 
             async init() {
                 await this.refresh();
+                await this.loadModels();
                 this.checkModelLoadProgress();
+            },
+
+            async loadModels() {
+                try {
+                    const response = await fetch('/api/v1/models/', { method: 'GET' });
+                    if (!response.ok) {
+                        this.models = [];
+                        this.hasAvailableModels = false;
+                        return;
+                    }
+
+                    const data = await response.json();
+                    this.models = data.models || [];
+                    this.hasAvailableModels = this.models.length > 0;
+                    this.activeModelId = data.active_model_id || this.activeModelId;
+
+                    // 預設選擇：active model（若有），否則第一個可用模型
+                    const availableIds = new Set(this.models.map(m => m.model_id));
+                    if (this.activeModelId && availableIds.has(this.activeModelId)) {
+                        this.selectedModelId = this.activeModelId;
+                    } else if (!this.selectedModelId || !availableIds.has(this.selectedModelId)) {
+                        this.selectedModelId = this.models[0]?.model_id || '';
+                    }
+                } catch (e) {
+                    console.error('載入模型清單失敗:', e);
+                    this.models = [];
+                    this.hasAvailableModels = false;
+                }
             },
 
             async startModelLoading() {
@@ -276,6 +326,8 @@
                 try {
                     const response = await fetch('/api/v1/admin/model/load-progress/', {
                         method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model_id: this.selectedModelId, force: false }),
                     });
 
                     if (response.ok) {
@@ -373,6 +425,7 @@
                 this.modelStatus = data.model?.loaded ? '已載入' : '未載入';
                 this.executionMode = data.model?.execution_mode || '-';
                 this.modelLoaded = data.model?.loaded || false;
+                this.activeModelId = data.model?.active_model_id || this.activeModelId;
 
                 // 佇列狀態
                 const queue = data.queue || {};

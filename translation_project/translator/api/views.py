@@ -879,11 +879,60 @@ def admin_model_load_progress(request: HttpRequest) -> JsonResponse:
     """
     try:
         from translator.services.model_service import get_model_service
+        from translator.services.model_service import ModelService
+        from translator.utils.model_id import validate_model_id
 
         model_service = get_model_service()
 
         if request.method == 'POST':
+            # 可選：指定要載入/切換的 model_id
+            payload = {}
+            if request.body:
+                try:
+                    payload = json.loads(request.body)
+                except json.JSONDecodeError:
+                    payload = {}
+
+            requested_model_id = payload.get('model_id')
+            force = bool(payload.get('force', False))
+
             # 觸發模型載入
+            if requested_model_id:
+                requested_model_id = validate_model_id(requested_model_id)
+
+                if model_service.is_loaded() and ModelService.get_active_model_id() == requested_model_id:
+                    return JsonResponse({
+                        'status': 'already_loaded',
+                        'progress': 100.0,
+                        'message': '模型已載入',
+                        'model_status': 'loaded',
+                        'active_model_id': ModelService.get_active_model_id(),
+                    }, status=200)
+
+                import threading
+
+                def switch_in_background():
+                    try:
+                        ModelService.switch_model(
+                            model_id=requested_model_id, force=force)
+                    except TranslationError as e:
+                        logger.warning("模型切換失敗: %s", e)
+                    except Exception as e:  # pylint: disable=broad-exception-caught
+                        logger.error("模型切換過程中發生未預期錯誤: %s", e, exc_info=True)
+
+                loader_thread = threading.Thread(
+                    target=switch_in_background, daemon=True)
+                loader_thread.start()
+
+                return JsonResponse({
+                    'status': 'switching',
+                    'progress': model_service.get_loading_progress(),
+                    'message': '模型切換/載入已啟動',
+                    'model_status': 'loading',
+                    'requested_model_id': requested_model_id,
+                    'active_model_id': ModelService.get_active_model_id(),
+                }, status=202)
+
             if model_service.is_loaded():
                 return JsonResponse({
                     'status': 'already_loaded',
@@ -896,7 +945,10 @@ def admin_model_load_progress(request: HttpRequest) -> JsonResponse:
             import threading
 
             def load_in_background():
-                model_service.load_model()
+                try:
+                    model_service.load_model()
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.error("模型載入過程中發生未預期錯誤: %s", e, exc_info=True)
 
             loader_thread = threading.Thread(
                 target=load_in_background, daemon=True)
@@ -920,6 +972,7 @@ def admin_model_load_progress(request: HttpRequest) -> JsonResponse:
                 'model_status': status,
                 'loaded': model_service.is_loaded(),
                 'error_message': model_service.get_error_message(),
+                'active_model_id': ModelService.get_active_model_id(),
             }, status=200)
 
     except Exception as e:

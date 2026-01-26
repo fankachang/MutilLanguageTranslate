@@ -105,9 +105,7 @@ class TranslationService:
 
             # 檢查模型狀態
             if not self._model_service.is_loaded():
-                # 嘗試載入模型
-                if not self._model_service.load_model():
-                    raise TranslationError(ErrorCode.MODEL_NOT_LOADED)
+                raise TranslationError(ErrorCode.MODEL_NOT_LOADED)
 
             # 嘗試取得處理槽位
             _, slot_result = self._queue_service.acquire_slot(request)
@@ -141,9 +139,12 @@ class TranslationService:
 
                 # 記錄翻譯日誌
                 translation_logger.info(
-                    f"翻譯成功 | ID={request.request_id} | "
-                    f"來源={request.source_language} | 目標={request.target_language} | "
-                    f"字數={len(request.text)} | 時間={processing_time_ms}ms"
+                    "翻譯成功 | ID=%s | 來源=%s | 目標=%s | 字數=%d | 時間=%dms",
+                    request.request_id,
+                    request.source_language,
+                    request.target_language,
+                    len(request.text),
+                    processing_time_ms,
                 )
 
                 return TranslationResponse(
@@ -168,13 +169,14 @@ class TranslationService:
             )
 
             logger.warning(
-                f"翻譯失敗 | ID={request.request_id} | "
-                f"錯誤={e.code}"
+                "翻譯失敗 | ID=%s | 錯誤=%s",
+                request.request_id,
+                e.code,
             )
 
             return self._create_error_response(request, e.code, start_time, e.message)
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             processing_time_ms = int((time.time() - start_time) * 1000)
             self._statistics_service.record_request(
                 success=False,
@@ -182,9 +184,10 @@ class TranslationService:
             )
 
             logger.error(
-                f"翻譯發生未預期錯誤 | ID={request.request_id} | "
-                f"錯誤={str(e)}",
-                exc_info=True
+                "翻譯發生未預期錯誤 | ID=%s | 錯誤=%s",
+                request.request_id,
+                str(e),
+                exc_info=True,
             )
 
             return self._create_error_response(
@@ -304,7 +307,7 @@ class TranslationService:
             )
 
         print(f"清理後輸出: {translated_text!r}")
-        print(f"=== END DEBUG ===\n")
+        print("=== END DEBUG ===\n")
         translation_logger.info(
             "清理後輸出 | ID=%s | len=%d | preview=%r",
             request.request_id,
@@ -356,7 +359,7 @@ class TranslationService:
                 )
 
             print(f"重試清理後: {retry_text!r}")
-            print(f"=== END RETRY ===\n")
+            print("=== END RETRY ===\n")
             if retry_text and self._looks_like_target_language(retry_text, request.target_language):
                 translated_text = retry_text
 
@@ -470,7 +473,7 @@ class TranslationService:
             # 簡單的規則偵測作為回退
             return self._rule_based_detection(text)
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.warning("語言偵測失敗: %s", e)
             return self._rule_based_detection(text)
 
@@ -546,7 +549,8 @@ class TranslationService:
         if self._prompt_format_type == 'chat_template':
             # 使用 Chat Template 格式 - 返回結構化訊息
             return self._build_chat_template_prompt(
-                sanitized_text, source_name, target_name, force_output_only
+                sanitized_text, source_name, target_name, force_output_only,
+                source_code=source_language, target_code=target_language
             )
         else:
             # 使用傳統 Template 格式
@@ -601,12 +605,22 @@ class TranslationService:
         source_name: str,
         target_name: str,
         force_output_only: bool = False,
+        source_code: Optional[str] = None,
+        target_code: Optional[str] = None,
     ) -> str:
         """
         使用 Huggingface Chat Template 格式組裝 Prompt
 
         返回 JSON 格式的訊息列表，由 ModelService 使用 tokenizer.apply_chat_template() 處理
         格式：[{"role": "system", "content": "..."}, {"role": "user", "content": "..."}]
+
+        Args:
+            text: 要翻譯的文字
+            source_name: 來源語言名稱（如 "English"）
+            target_name: 目標語言名稱（如 "繁體中文"）
+            force_output_only: 是否強制只輸出譯文
+            source_code: 來源語言代碼（如 "en"），供特殊模型使用
+            target_code: 目標語言代碼（如 "zh-TW"），供特殊模型使用
         """
         import json
 
@@ -638,9 +652,13 @@ class TranslationService:
         })
 
         # 返回 JSON 字串，標記為 chat_template 格式
+        # 包含語言代碼供 Translategemma 等特殊模型使用
         return json.dumps({
             "_format": "chat_template",
-            "messages": messages
+            "messages": messages,
+            "source_lang_code": source_code,
+            "target_lang_code": target_code,
+            "text": text,
         }, ensure_ascii=False)
 
     def _sanitize_text(self, text: str) -> str:
@@ -856,7 +874,7 @@ _translation_service: Optional[TranslationService] = None
 
 def get_translation_service() -> TranslationService:
     """取得 TranslationService 實例"""
-    global _translation_service
+    global _translation_service  # pylint: disable=global-statement
     if _translation_service is None:
         _translation_service = TranslationService()
     return _translation_service

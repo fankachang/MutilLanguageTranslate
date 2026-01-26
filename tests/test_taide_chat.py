@@ -1,12 +1,15 @@
-"""
-TAIDE-LX-7B-Chat 模型測試腳本
+"""TAIDE-LX-7B-Chat 模型測試腳本
 
 測試：
 1. 配置檔是否正確載入
 2. Prompt 範本是否正確格式化
 3. BOS token 是否正確添加
+
+此測試需要載入翻譯服務，會執行較久。
+使用 pytest -m slow 執行此測試。
 """
 
+import pytest
 from translator.services.translation_service import TranslationService
 from translator.utils.config_loader import ConfigLoader
 import os
@@ -23,6 +26,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'translation_project.settings')
 django.setup()
 
 
+@pytest.mark.slow
 def test_config_loading():
     """測試配置檔載入"""
     print("=" * 60)
@@ -47,6 +51,7 @@ def test_config_loading():
     print()
 
 
+@pytest.mark.slow
 def test_prompt_building():
     """測試 Prompt 組裝"""
     print("=" * 60)
@@ -124,6 +129,7 @@ def test_prompt_building():
     print()
 
 
+@pytest.mark.slow
 def test_sanitization():
     """測試 Prompt 注入防護"""
     print("=" * 60)

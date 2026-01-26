@@ -213,6 +213,10 @@ class LocalModelProvider(BaseModelProvider):
         try:
             data = json.loads(prompt)
             if isinstance(data, dict) and data.get('_format') == 'chat_template':
+                # 檢查是否為 Translategemma 模型（不支援 system role，需要特殊格式）
+                if self._is_translategemma_model():
+                    return self._process_translategemma_prompt(data)
+
                 # 使用 tokenizer.apply_chat_template() 處理
                 messages = data.get('messages', [])
                 if self._tokenizer is not None and hasattr(self._tokenizer, 'apply_chat_template'):
@@ -230,6 +234,73 @@ class LocalModelProvider(BaseModelProvider):
             pass
 
         return prompt
+
+    def _is_translategemma_model(self) -> bool:
+        """
+        檢查當前模型是否為 Translategemma 系列
+
+        Translategemma 有特殊的 chat template 格式要求：
+        - 不支援 system role
+        - user message content 必須是包含翻譯參數的陣列格式
+        """
+        config = getattr(self, '_config', None)
+        if not isinstance(config, dict):
+            config = {}
+
+        local_config = config.get('local', {})
+        model_name = local_config.get('name', '').lower()
+        model_path = local_config.get('path', '').lower()
+
+        # 檢查模型名稱或路徑是否包含 translategemma
+        return 'translategemma' in model_name or 'translategemma' in model_path
+
+    def _process_translategemma_prompt(self, data: dict) -> str:
+        """
+        處理 Translategemma 模型的特殊 prompt 格式
+
+        Translategemma 的 chat template 要求：
+        1. 對話必須以 user 開頭（不支援 system role）
+        2. user message 的 content 必須是特殊格式的陣列：
+           [{"type": "text", "source_lang_code": "en", "target_lang_code": "zh-TW", "text": "..."}]
+
+        Args:
+            data: 包含 messages、source_lang_code、target_lang_code、text 的字典
+
+        Returns:
+            處理後的 prompt 字串
+        """
+        source_lang = data.get('source_lang_code', 'en')
+        target_lang = data.get('target_lang_code', 'zh-TW')
+        text = data.get('text', '')
+
+        # 建構 Translategemma 格式的 messages
+        messages = [{
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "source_lang_code": source_lang,
+                "target_lang_code": target_lang,
+                "text": text
+            }]
+        }]
+
+        logger.debug(
+            "Translategemma 格式 messages: source=%s, target=%s",
+            source_lang, target_lang
+        )
+
+        if self._tokenizer is not None and hasattr(self._tokenizer, 'apply_chat_template'):
+            return self._tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+        else:
+            # Translategemma 必須使用 tokenizer
+            raise TranslationError(
+                ErrorCode.INTERNAL_ERROR,
+                "Translategemma 模型需要 tokenizer 支援 apply_chat_template"
+            )
 
     def _fallback_chat_template(self, messages: list) -> str:
         """

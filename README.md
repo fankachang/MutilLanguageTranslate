@@ -40,13 +40,15 @@ cd MutilLanguageTranslate
 ### 2. 建立虛擬環境
 
 ```bash
-python -m venv venv
+# 若專案根目錄已存在 .venv/，請不要重建，直接啟用即可。
+
+python -m venv .venv
 
 # Windows
-venv\Scripts\activate
+.venv\Scripts\activate
 
 # Linux/macOS
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### 3. 安裝相依套件
@@ -105,7 +107,7 @@ python -c "from transformers import AutoModelForCausalLM; AutoModelForCausalLM.f
 cd translation_project
 
 # 開發模式
-..\.venv\Scripts\python manage.py runserver
+..\.venv\Scripts\python.exe manage.py runserver
 
 # 生產模式（使用 uvicorn）
 uvicorn translation_project.asgi:application --host 0.0.0.0 --port 8000
@@ -114,6 +116,19 @@ uvicorn translation_project.asgi:application --host 0.0.0.0 --port 8000
 ### 7. 開啟瀏覽器
 
 造訪 http://localhost:8000 開始使用翻譯服務。
+
+### 重要：模型載入改為手動啟動
+
+為了避免啟動時就佔用大量資源，服務啟動後**不會自動載入模型**。
+
+- 請開啟 http://localhost:8000/admin/status/
+- 在「要啟動的模型」選擇模型後按下「選擇後開始載入」
+
+若你想維持舊行為（啟動就自動載入），可設定環境變數：
+
+```powershell
+$env:TRANSLATOR_AUTO_LOAD_MODEL_ON_STARTUP = "1"
+```
 
 ## GPU 記憶體最佳化（自動偵測）
 
@@ -242,11 +257,17 @@ podman compose -f docker-compose.yaml down
 若你執行 `podman compose` 時提示找不到 provider，請先安裝其中一個：
 
 ```powershell
-# 其中一種選項：用 pip 安裝 podman-compose
-python -m pip install podman-compose
+# 建議：安裝到本專案的 .venv，避免使用系統 Python
+.\.venv\Scripts\python.exe -m pip install podman-compose
 
-# (可選) 指定要用哪個 provider
-$env:PODMAN_COMPOSE_PROVIDER = "podman-compose"
+# (可選，但推薦) 指定 podman compose 要使用 .venv 裡的 provider
+$env:PODMAN_COMPOSE_PROVIDER = (Resolve-Path .\.venv\Scripts\podman-compose.exe).Path
+```
+
+或是直接用 `.venv` 內的 `podman-compose`（完全不依賴系統 Python）：
+
+```powershell
+.\.venv\Scripts\podman-compose.exe -f docker-compose.yaml up -d
 ```
 
 ### 使用 Docker

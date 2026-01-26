@@ -15,6 +15,14 @@ class TranslatorConfig(AppConfig):
         import sys
         logger = logging.getLogger('translator')
 
+        auto_load = os.environ.get("TRANSLATOR_AUTO_LOAD_MODEL_ON_STARTUP", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "y",
+            "on",
+        }
+
         # 只在「真的要啟動 Web 服務」時才載入模型。
         # 避免在 build 階段（collectstatic）、migrate、測試等管理指令時不必要地載入大型模型。
         argv_lower = " ".join(sys.argv).lower()
@@ -31,6 +39,13 @@ class TranslatorConfig(AppConfig):
 
         if is_runserver and (not use_noreload) and (not is_main_process):
             logger.info("跳過 reloader 進程的模型載入")
+            return
+
+        # 預設不在啟動時自動載入模型，改由管理狀態頁選擇後再啟動載入。
+        # 如需維持舊行為，可設定環境變數：TRANSLATOR_AUTO_LOAD_MODEL_ON_STARTUP=1
+        if not auto_load:
+            logger.info(
+                "已停用啟動自動載入模型（可用 TRANSLATOR_AUTO_LOAD_MODEL_ON_STARTUP=1 啟用）")
             return
 
         try:
@@ -51,7 +66,8 @@ class TranslatorConfig(AppConfig):
                     if success:
                         logger.info("=" * 60)
                         logger.info("✓ 翻譯模型載入完成，系統已就緒")
-                        logger.info("✓ 執行模式: %s", model_service.get_execution_mode())
+                        logger.info(
+                            "✓ 執行模式: %s", model_service.get_execution_mode())
                         logger.info("=" * 60)
                     else:
                         logger.error("=" * 60)
@@ -67,7 +83,7 @@ class TranslatorConfig(AppConfig):
                 load_thread.start()
                 logger.info("✓ 背景載入執行緒已啟動，Django 服務即將就緒")
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("=" * 60)
             logger.error("✗ 模型載入過程中發生錯誤: %s", e, exc_info=True)
             logger.error("=" * 60)

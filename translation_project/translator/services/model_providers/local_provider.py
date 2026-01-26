@@ -254,8 +254,9 @@ class LocalModelProvider(BaseModelProvider):
         3. 配置中的模型名稱
         """
         # 優先使用實際載入的模型路徑
-        if self._loaded_model_path is not None:
-            path_str = str(self._loaded_model_path).lower()
+        loaded_model_path = getattr(self, '_loaded_model_path', None)
+        if loaded_model_path is not None:
+            path_str = str(loaded_model_path).lower()
             if 'translategemma' in path_str:
                 logger.debug("透過實際載入路徑識別為 Translategemma: %s", path_str)
                 return True
@@ -272,9 +273,57 @@ class LocalModelProvider(BaseModelProvider):
         is_translategemma = 'translategemma' in model_name or 'translategemma' in model_path
 
         if is_translategemma:
-            logger.debug("透過配置識別為 Translategemma: name=%s, path=%s", model_name, model_path)
+            logger.debug("透過配置識別為 Translategemma: name=%s, path=%s",
+                         model_name, model_path)
 
         return is_translategemma
+
+    def _normalize_translategemma_lang_code(self, code: Optional[str], fallback: str) -> str:
+        """將系統語言代碼正規化為 Translategemma chat_template 可接受的代碼。
+
+        Translategemma 的 chat_template 內建語言表不包含我們系統使用的 `zh-CN`，
+        但包含 `zh-Hans`（簡體）與 `zh-Hant`/`zh-TW`（繁體）。
+
+        Args:
+            code: 來源/目標語言代碼（可能為 None、auto、含底線）
+            fallback: 無法判斷時回退的代碼
+
+        Returns:
+            正規化後的語言代碼
+        """
+        if not code:
+            return fallback
+
+        normalized = str(code).strip().replace('_', '-')
+        normalized_lower = normalized.lower()
+
+        if normalized_lower == 'auto':
+            return fallback
+
+        # 簡體：系統用 zh-CN，Translategemma 以 zh-Hans 表示
+        if normalized_lower in {
+            'zh-cn',
+            'zh-hans',
+            'zh-hans-cn',
+            'zh-hans-hk',
+            'zh-hans-mo',
+            'zh-hans-my',
+            'zh-hans-sg',
+        }:
+            return 'zh-Hans'
+
+        # 繁體：系統主要用 zh-TW；若帶其他繁體變體也統一
+        if normalized_lower in {
+            'zh-tw',
+            'zh-hant',
+            'zh-hant-hk',
+            'zh-hant-mo',
+            'zh-hant-my',
+        }:
+            return 'zh-TW'
+
+        # 其他語言（en/ja/ko/fr/de/es）直接回傳（保留原大小寫以利對照）
+        return normalized
 
     def _process_translategemma_prompt(self, data: dict) -> str:
         """
@@ -291,8 +340,15 @@ class LocalModelProvider(BaseModelProvider):
         Returns:
             處理後的 prompt 字串
         """
-        source_lang = data.get('source_lang_code', 'en')
-        target_lang = data.get('target_lang_code', 'zh-TW')
+        # Translategemma chat_template 的語言對照表不包含 zh-CN，因此先正規化
+        source_lang = self._normalize_translategemma_lang_code(
+            data.get('source_lang_code', 'en'),
+            fallback='en',
+        )
+        target_lang = self._normalize_translategemma_lang_code(
+            data.get('target_lang_code', 'zh-TW'),
+            fallback='zh-TW',
+        )
         text = data.get('text', '')
 
         # 建構 Translategemma 格式的 messages
@@ -367,12 +423,21 @@ class LocalModelProvider(BaseModelProvider):
         if not self.is_loaded():
             raise TranslationError(ErrorCode.MODEL_NOT_LOADED)
 
+        if self._tokenizer is None or self._model is None:
+            raise TranslationError(
+                ErrorCode.INTERNAL_ERROR,
+                "模型或 tokenizer 尚未初始化",
+            )
+
+        tokenizer = self._tokenizer
+        model = self._model
+
         try:
             # 檢查是否為 chat_template 格式
             actual_prompt = self._process_prompt(prompt)
 
             # 編碼輸入
-            inputs = self._tokenizer(
+            inputs = tokenizer(
                 actual_prompt,
                 return_tensors="pt",
                 truncation=True,
@@ -382,7 +447,7 @@ class LocalModelProvider(BaseModelProvider):
             # 移除尾端可能的 eos_token
             input_ids = inputs.get('input_ids')
             attention_mask = inputs.get('attention_mask')
-            eos_id = self._tokenizer.eos_token_id
+            eos_id = tokenizer.eos_token_id
             if input_ids is not None and eos_id is not None and input_ids.shape[-1] > 0:
                 if int(input_ids[0, -1]) == int(eos_id):
                     inputs['input_ids'] = input_ids[:, :-1]
@@ -399,22 +464,46 @@ class LocalModelProvider(BaseModelProvider):
 
                 generation_config = GenerationConfig(**generation_params)
 
+                # Translategemma 使用 <end_of_turn> 標記回合結束；若只用 <eos> 容易生成到回合外造成尾巴雜訊
+                eos_token_id = tokenizer.eos_token_id
+                pad_token_id = tokenizer.pad_token_id
+
+                if self._is_translategemma_model():
+                    try:
+                        end_of_turn_id = tokenizer.convert_tokens_to_ids(
+                            '<end_of_turn>')
+                        unk_id = tokenizer.unk_token_id
+                        if end_of_turn_id is not None and (unk_id is None or int(end_of_turn_id) != int(unk_id)):
+                            # transformers 支援 list eos_token_id：遇到任一個即停止
+                            eos_token_id = [int(end_of_turn_id)]
+                            if tokenizer.eos_token_id is not None:
+                                eos_token_id.append(
+                                    int(tokenizer.eos_token_id))
+                    except Exception:  # pylint: disable=broad-exception-caught
+                        pass
+
+                if pad_token_id is None:
+                    if isinstance(eos_token_id, list) and eos_token_id:
+                        pad_token_id = int(eos_token_id[0])
+                    else:
+                        pad_token_id = tokenizer.eos_token_id
+
                 generate_kwargs = {
                     **inputs,
                     'generation_config': generation_config,
-                    'pad_token_id': self._tokenizer.eos_token_id,
-                    'eos_token_id': self._tokenizer.eos_token_id,
+                    'pad_token_id': pad_token_id,
+                    'eos_token_id': eos_token_id,
                 }
 
                 if 'early_stopping' not in generate_kwargs and generation_params.get('num_beams', 1) > 1:
                     generate_kwargs['early_stopping'] = True
 
-                outputs = self._model.generate(**generate_kwargs)
+                outputs = model.generate(**generate_kwargs)
 
             # 只解碼新生成的 token
             prompt_len = int(inputs['input_ids'].shape[-1])
             generated_ids = outputs[0][prompt_len:]
-            generated_text = self._tokenizer.decode(
+            generated_text = tokenizer.decode(
                 generated_ids,
                 skip_special_tokens=True,
             ).strip()

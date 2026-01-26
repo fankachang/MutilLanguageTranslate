@@ -58,16 +58,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 ### 選項 3: 跳過模型載入，僅驗證 API 結構
 
-暫時跳過模型載入以測試其他功能：
-
-```powershell
-# 設定環境變數
-$env:SKIP_MODEL_LOAD = "true"
-
-# 啟動服務
-cd translation_project
-..\.venv\Scripts\python.exe manage.py runserver 0.0.0.0:8000 --noreload
-```
+目前服務啟動後**預設不會自動載入模型**（需手動在狀態頁觸發載入），因此你可以直接啟動服務並先驗證健康檢查與路由結構。
 
 ## 🧪 驗證指令
 
@@ -78,7 +69,7 @@ curl http://localhost:8000/api/health/
 
 ### 2. 查看支援的語言
 ```powershell
-curl http://localhost:8000/api/languages/
+curl http://localhost:8000/api/v1/languages/
 ```
 
 ### 3. 測試翻譯 API（需要模型已載入）
@@ -94,7 +85,7 @@ curl http://localhost:8000/api/languages/
 "@ | Out-File -Encoding utf8 test_request.json
 
 # 發送請求
-curl -X POST http://localhost:8000/api/translate/ `
+curl -X POST http://localhost:8000/api/v1/translate/ `
   -H "Content-Type: application/json" `
   -d "@test_request.json"
 ```
@@ -108,7 +99,7 @@ curl -X POST http://localhost:8000/api/translate/ `
 即使模型未載入，您仍可透過測試腳本驗證 Prompt 格式：
 
 ```powershell
-..\.venv\Scripts\python.exe test_taide_chat.py
+..\.venv\Scripts\python.exe -m pytest -k taide_chat
 ```
 
 所有測試應該通過，確認：

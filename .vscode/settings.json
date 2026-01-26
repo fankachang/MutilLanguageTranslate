@@ -27,5 +27,7 @@
   "python.analysis.typeCheckingMode": "basic", // 啟用基本的型別檢查
   "python.terminal.activateEnvironment": true, // 在終端機中自動啟用Python虛擬環境
   "python.linting.enabled": true, // 啟用Python程式碼檢查"
-  "python.linting.pylintEnabled": true // 啟用Pylint檢查
+  "python.linting.pylintEnabled": true,
+  "python-envs.defaultEnvManager": "ms-python.python:system",
+  "python-envs.pythonProjects": [] // 啟用Pylint檢查
 }

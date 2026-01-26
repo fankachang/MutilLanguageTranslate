@@ -21,7 +21,7 @@ from uuid import uuid4
 class Language:
     """
     代表系統支援的翻譯語言
-    
+
     Attributes:
         code: 語言代碼，如 "zh-TW", "en"
         name: 本地名稱，如 "繁體中文"
@@ -34,7 +34,7 @@ class Language:
     name_en: str
     is_enabled: bool = True
     sort_order: int = 0
-    
+
     def to_dict(self) -> dict:
         """轉換為字典格式"""
         return {
@@ -50,7 +50,7 @@ class Language:
 class TranslationRequest:
     """
     代表一次翻譯操作的輸入
-    
+
     Attributes:
         text: 待翻譯文字（1-10,000 字元）
         target_language: 目標語言代碼
@@ -65,33 +65,37 @@ class TranslationRequest:
     target_language: str
     source_language: str = "auto"
     quality: str = "standard"
+    model_id: Optional[str] = None
     request_id: str = field(default_factory=lambda: str(uuid4()))
     client_ip: str = ""
     received_at: datetime = field(default_factory=datetime.utcnow)
-    
+
     @property
     def created_at(self) -> datetime:
         """建立時間（received_at 的別名）"""
         return self.received_at
-    
+
     def to_dict(self) -> dict:
         """轉換為字典格式"""
-        return {
+        result = {
             'request_id': self.request_id,
             'text': self.text,
             'source_language': self.source_language,
             'target_language': self.target_language,
             'quality': self.quality,
+            'model_id': self.model_id,
             'client_ip': self.client_ip,
             'received_at': self.received_at.isoformat(),
         }
+
+        return result
 
 
 @dataclass
 class TranslationResponse:
     """
     代表翻譯結果
-    
+
     Attributes:
         request_id: 對應的請求 ID
         status: 處理狀態 (pending/processing/completed/failed/timeout/rejected)
@@ -114,7 +118,7 @@ class TranslationResponse:
     confidence_score: Optional[float] = None
     error_code: Optional[str] = None
     error_message: Optional[str] = None
-    
+
     def to_dict(self) -> dict:
         """轉換為字典格式"""
         result = {
@@ -123,22 +127,22 @@ class TranslationResponse:
             'processing_time_ms': self.processing_time_ms,
             'execution_mode': self.execution_mode,
         }
-        
+
         if self.translated_text is not None:
             result['translated_text'] = self.translated_text
-        
+
         if self.detected_language is not None:
             result['detected_language'] = self.detected_language
-            
+
         if self.confidence_score is not None:
             result['confidence_score'] = self.confidence_score
-            
+
         if self.error_code is not None:
             result['error'] = {
                 'code': self.error_code,
                 'message': self.error_message or '',
             }
-            
+
         return result
 
 
@@ -146,7 +150,7 @@ class TranslationResponse:
 class QueueItem:
     """
     代表佇列中的請求
-    
+
     Attributes:
         request_id: 唯一識別碼
         request: 翻譯請求物件
@@ -161,7 +165,7 @@ class QueueItem:
     queued_at: datetime = field(default_factory=datetime.utcnow)
     started_at: Optional[datetime] = None
     queue_position: Optional[int] = None
-    
+
     def to_dict(self) -> dict:
         """轉換為字典格式"""
         result = {
@@ -169,13 +173,13 @@ class QueueItem:
             'status': self.status,
             'queued_at': self.queued_at.isoformat(),
         }
-        
+
         if self.started_at is not None:
             result['started_at'] = self.started_at.isoformat()
-            
+
         if self.queue_position is not None:
             result['queue_position'] = self.queue_position
-            
+
         return result
 
 
@@ -183,7 +187,7 @@ class QueueItem:
 class SystemStatus:
     """
     代表系統監控資訊
-    
+
     Attributes:
         is_running: 系統是否運行中
         model_status: 模型狀態 (not_loaded/loading/loaded/error)
@@ -210,14 +214,14 @@ class SystemStatus:
     uptime_seconds: int
     last_updated: datetime
     gpu_memory_usage_mb: Optional[float] = None
-    
+
     def to_dict(self) -> dict:
         """轉換為字典格式"""
         # 格式化運行時間
         hours, remainder = divmod(self.uptime_seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
         uptime_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-        
+
         result = {
             'system': {
                 'is_running': self.is_running,
@@ -240,10 +244,10 @@ class SystemStatus:
                 'max_queue_size': self.max_queue_size,
             },
         }
-        
+
         if self.gpu_memory_usage_mb is not None:
             result['resources']['gpu_memory_usage_mb'] = self.gpu_memory_usage_mb
-            
+
         return result
 
 
@@ -251,7 +255,7 @@ class SystemStatus:
 class TranslationStatistics:
     """
     代表 24 小時內的翻譯統計
-    
+
     Attributes:
         period_start: 統計期間開始時間
         period_end: 統計期間結束時間
@@ -268,7 +272,7 @@ class TranslationStatistics:
     failed_requests: int
     success_rate: float
     average_processing_time_ms: float
-    
+
     def to_dict(self) -> dict:
         """轉換為字典格式"""
         return {
@@ -290,7 +294,7 @@ class TranslationStatistics:
 class MinuteSnapshot:
     """
     用於統計滑動視窗的內部結構
-    
+
     Attributes:
         timestamp: 時間戳（格式：YYYYMMDDHHMM）
         total: 該分鐘請求數
@@ -301,7 +305,7 @@ class MinuteSnapshot:
     total: int = 0
     success: int = 0
     total_time_ms: int = 0
-    
+
     def to_dict(self) -> dict:
         """轉換為字典格式"""
         return {

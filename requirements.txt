@@ -4,6 +4,7 @@
 # Web 框架
 Django>=4.2
 uvicorn>=0.25.0
+whitenoise>=6.0.0
 
 # 模型推論
 transformers>=4.36.0

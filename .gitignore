@@ -29,9 +29,12 @@ config/model_config.yaml
 
 # IDE
 .idea/
-.vscode/settings.json
+.vscode/
 *.swp
 *.swo
+
+# Windows
+Thumbs.db
 
 # 日誌檔案
 logs/*.log

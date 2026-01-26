@@ -5,6 +5,9 @@
 """
 
 import logging
+import gc
+import threading
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable
 
@@ -40,6 +43,8 @@ class LocalModelProvider(BaseModelProvider):
         self._error_message: Optional[str] = None
         self._loading_progress: float = 0.0
         self._progress_callback: Optional[Callable[[float, str], None]] = None
+        # 記錄實際載入的模型路徑，供模型類型識別使用
+        self._loaded_model_path: Optional[Path] = None
 
     def set_progress_callback(self, callback: Optional[Callable[[float, str], None]]):
         """設定進度回呼函數"""
@@ -60,6 +65,9 @@ class LocalModelProvider(BaseModelProvider):
         logger.info("開始載入 TAIDE-LX-7B 模型（本地模式）...")
         self._report_progress(5, "初始化配置...")
 
+        smooth_stop = threading.Event()
+        smooth_thread: Optional[threading.Thread] = None
+
         try:
             # 取得模型路徑
             model_path = self._get_model_path()
@@ -71,6 +79,30 @@ class LocalModelProvider(BaseModelProvider):
             # 延遲導入 transformers
             self._report_progress(15, "導入 transformers 套件...")
             from transformers import AutoModelForCausalLM, AutoTokenizer
+
+            def _set_progress_no_log(progress: float, message: str):
+                self._loading_progress = float(progress)
+                if self._progress_callback:
+                    try:
+                        self._progress_callback(float(progress), message)
+                    except (TypeError, ValueError, RuntimeError):
+                        pass
+
+            def _start_smooth_progress(start: int, end: int, message: str, interval_seconds: float = 2.0):
+                nonlocal smooth_thread
+                if smooth_thread is not None and smooth_thread.is_alive():
+                    return
+
+                def _run():
+                    current = int(start)
+                    target_end = int(end)
+                    while not smooth_stop.is_set() and current < target_end:
+                        current += 1
+                        _set_progress_no_log(current, message)
+                        time.sleep(interval_seconds)
+
+                smooth_thread = threading.Thread(target=_run, daemon=True)
+                smooth_thread.start()
 
             # 讀取量化與 offload 選項
             local_config = self._config.get('local', {})
@@ -126,6 +158,10 @@ class LocalModelProvider(BaseModelProvider):
                             bnb_4bit_quant_type="nf4"
                         )
 
+                        # from_pretrained 可能耗時很久：用平滑進度避免卡在 25
+                        _start_smooth_progress(
+                            25, 74, "模型權重載入中...", interval_seconds=5.0)
+
                         self._model = AutoModelForCausalLM.from_pretrained(
                             str(model_path),
                             quantization_config=bnb_config,
@@ -136,6 +172,8 @@ class LocalModelProvider(BaseModelProvider):
                         logger.info("✓ 成功使用 4-bit 量化載入模型")
                     except ImportError:
                         logger.warning("bitsandbytes 未安裝，改回 float16 模式")
+                        _start_smooth_progress(
+                            25, 74, "模型權重載入中...", interval_seconds=5.0)
                         self._model = AutoModelForCausalLM.from_pretrained(
                             str(model_path),
                             dtype=torch.float16,
@@ -145,6 +183,8 @@ class LocalModelProvider(BaseModelProvider):
                         )
                     except Exception as e:
                         logger.warning(f"4-bit 量化載入失敗，改回非量化載入: {e}")
+                        _start_smooth_progress(
+                            25, 74, "模型權重載入中...", interval_seconds=5.0)
                         self._model = AutoModelForCausalLM.from_pretrained(
                             str(model_path),
                             dtype=torch.float16,
@@ -155,6 +195,8 @@ class LocalModelProvider(BaseModelProvider):
                 else:
                     # float16 模式
                     self._report_progress(25, "float16 模式載入中...")
+                    _start_smooth_progress(
+                        25, 74, "模型權重載入中...", interval_seconds=5.0)
                     self._model = AutoModelForCausalLM.from_pretrained(
                         str(model_path),
                         dtype=torch.float16,
@@ -167,6 +209,9 @@ class LocalModelProvider(BaseModelProvider):
                 logger.info("使用 CPU 模式")
                 self._report_progress(20, "使用 CPU 模式，載入模型...")
 
+                _start_smooth_progress(
+                    20, 74, "模型權重載入中...", interval_seconds=5.0)
+
                 self._model = AutoModelForCausalLM.from_pretrained(
                     str(model_path),
                     dtype=torch.float32,
@@ -174,12 +219,28 @@ class LocalModelProvider(BaseModelProvider):
                     trust_remote_code=True,
                 )
 
+            # 停止平滑進度，避免後續階段被背景執行緒覆寫
+            smooth_stop.set()
+            if smooth_thread is not None:
+                smooth_thread.join(timeout=1.0)
+
             # 載入 tokenizer
             self._report_progress(75, "載入 Tokenizer...")
+            # Tokenizer 有時也會花一些時間，稍微平滑一下
+            smooth_stop.clear()
+            _start_smooth_progress(
+                75, 94, "Tokenizer 載入中...", interval_seconds=1.0)
             self._tokenizer = AutoTokenizer.from_pretrained(
                 str(model_path),
                 trust_remote_code=True,
             )
+
+            smooth_stop.set()
+            if smooth_thread is not None:
+                smooth_thread.join(timeout=1.0)
+
+            # 記錄實際載入的模型路徑
+            self._loaded_model_path = model_path
 
             self._report_progress(95, "模型初始化中...")
             self._status = ModelStatus.LOADED
@@ -190,6 +251,9 @@ class LocalModelProvider(BaseModelProvider):
             return True
 
         except Exception as e:
+            smooth_stop.set()
+            if smooth_thread is not None:
+                smooth_thread.join(timeout=1.0)
             self._status = ModelStatus.ERROR
             self._error_message = str(e)
             self._loading_progress = 0.0
@@ -213,6 +277,10 @@ class LocalModelProvider(BaseModelProvider):
         try:
             data = json.loads(prompt)
             if isinstance(data, dict) and data.get('_format') == 'chat_template':
+                # 檢查是否為 Translategemma 模型（不支援 system role，需要特殊格式）
+                if self._is_translategemma_model():
+                    return self._process_translategemma_prompt(data)
+
                 # 使用 tokenizer.apply_chat_template() 處理
                 messages = data.get('messages', [])
                 if self._tokenizer is not None and hasattr(self._tokenizer, 'apply_chat_template'):
@@ -230,6 +298,146 @@ class LocalModelProvider(BaseModelProvider):
             pass
 
         return prompt
+
+    def _is_translategemma_model(self) -> bool:
+        """
+        檢查當前模型是否為 Translategemma 系列
+
+        Translategemma 有特殊的 chat template 格式要求：
+        - 不支援 system role
+        - user message content 必須是包含翻譯參數的陣列格式
+
+        使用多種方式來識別：
+        1. 實際載入的模型路徑（最可靠）
+        2. 配置中指定的模型路徑
+        3. 配置中的模型名稱
+        """
+        # 優先使用實際載入的模型路徑
+        loaded_model_path = getattr(self, '_loaded_model_path', None)
+        if loaded_model_path is not None:
+            path_str = str(loaded_model_path).lower()
+            if 'translategemma' in path_str:
+                logger.debug("透過實際載入路徑識別為 Translategemma: %s", path_str)
+                return True
+
+        # 從配置中取得路徑和名稱
+        config = getattr(self, '_config', None)
+        if not isinstance(config, dict):
+            config = {}
+
+        local_config = config.get('local', {})
+        model_name = local_config.get('name', '').lower()
+        model_path = local_config.get('path', '').lower()
+
+        is_translategemma = 'translategemma' in model_name or 'translategemma' in model_path
+
+        if is_translategemma:
+            logger.debug("透過配置識別為 Translategemma: name=%s, path=%s",
+                         model_name, model_path)
+
+        return is_translategemma
+
+    def _normalize_translategemma_lang_code(self, code: Optional[str], fallback: str) -> str:
+        """將系統語言代碼正規化為 Translategemma chat_template 可接受的代碼。
+
+        Translategemma 的 chat_template 內建語言表不包含我們系統使用的 `zh-CN`，
+        但包含 `zh-Hans`（簡體）與 `zh-Hant`/`zh-TW`（繁體）。
+
+        Args:
+            code: 來源/目標語言代碼（可能為 None、auto、含底線）
+            fallback: 無法判斷時回退的代碼
+
+        Returns:
+            正規化後的語言代碼
+        """
+        if not code:
+            return fallback
+
+        normalized = str(code).strip().replace('_', '-')
+        normalized_lower = normalized.lower()
+
+        if normalized_lower == 'auto':
+            return fallback
+
+        # 簡體：系統用 zh-CN，Translategemma 以 zh-Hans 表示
+        if normalized_lower in {
+            'zh-cn',
+            'zh-hans',
+            'zh-hans-cn',
+            'zh-hans-hk',
+            'zh-hans-mo',
+            'zh-hans-my',
+            'zh-hans-sg',
+        }:
+            return 'zh-Hans'
+
+        # 繁體：系統主要用 zh-TW；若帶其他繁體變體也統一
+        if normalized_lower in {
+            'zh-tw',
+            'zh-hant',
+            'zh-hant-hk',
+            'zh-hant-mo',
+            'zh-hant-my',
+        }:
+            return 'zh-TW'
+
+        # 其他語言（en/ja/ko/fr/de/es）直接回傳（保留原大小寫以利對照）
+        return normalized
+
+    def _process_translategemma_prompt(self, data: dict) -> str:
+        """
+        處理 Translategemma 模型的特殊 prompt 格式
+
+        Translategemma 的 chat template 要求：
+        1. 對話必須以 user 開頭（不支援 system role）
+        2. user message 的 content 必須是特殊格式的陣列：
+           [{"type": "text", "source_lang_code": "en", "target_lang_code": "zh-TW", "text": "..."}]
+
+        Args:
+            data: 包含 messages、source_lang_code、target_lang_code、text 的字典
+
+        Returns:
+            處理後的 prompt 字串
+        """
+        # Translategemma chat_template 的語言對照表不包含 zh-CN，因此先正規化
+        source_lang = self._normalize_translategemma_lang_code(
+            data.get('source_lang_code', 'en'),
+            fallback='en',
+        )
+        target_lang = self._normalize_translategemma_lang_code(
+            data.get('target_lang_code', 'zh-TW'),
+            fallback='zh-TW',
+        )
+        text = data.get('text', '')
+
+        # 建構 Translategemma 格式的 messages
+        messages = [{
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "source_lang_code": source_lang,
+                "target_lang_code": target_lang,
+                "text": text
+            }]
+        }]
+
+        logger.debug(
+            "Translategemma 格式 messages: source=%s, target=%s",
+            source_lang, target_lang
+        )
+
+        if self._tokenizer is not None and hasattr(self._tokenizer, 'apply_chat_template'):
+            return self._tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+        else:
+            # Translategemma 必須使用 tokenizer
+            raise TranslationError(
+                ErrorCode.INTERNAL_ERROR,
+                "Translategemma 模型需要 tokenizer 支援 apply_chat_template"
+            )
 
     def _fallback_chat_template(self, messages: list) -> str:
         """
@@ -274,12 +482,21 @@ class LocalModelProvider(BaseModelProvider):
         if not self.is_loaded():
             raise TranslationError(ErrorCode.MODEL_NOT_LOADED)
 
+        if self._tokenizer is None or self._model is None:
+            raise TranslationError(
+                ErrorCode.INTERNAL_ERROR,
+                "模型或 tokenizer 尚未初始化",
+            )
+
+        tokenizer = self._tokenizer
+        model = self._model
+
         try:
             # 檢查是否為 chat_template 格式
             actual_prompt = self._process_prompt(prompt)
 
             # 編碼輸入
-            inputs = self._tokenizer(
+            inputs = tokenizer(
                 actual_prompt,
                 return_tensors="pt",
                 truncation=True,
@@ -289,7 +506,7 @@ class LocalModelProvider(BaseModelProvider):
             # 移除尾端可能的 eos_token
             input_ids = inputs.get('input_ids')
             attention_mask = inputs.get('attention_mask')
-            eos_id = self._tokenizer.eos_token_id
+            eos_id = tokenizer.eos_token_id
             if input_ids is not None and eos_id is not None and input_ids.shape[-1] > 0:
                 if int(input_ids[0, -1]) == int(eos_id):
                     inputs['input_ids'] = input_ids[:, :-1]
@@ -306,22 +523,46 @@ class LocalModelProvider(BaseModelProvider):
 
                 generation_config = GenerationConfig(**generation_params)
 
+                # Translategemma 使用 <end_of_turn> 標記回合結束；若只用 <eos> 容易生成到回合外造成尾巴雜訊
+                eos_token_id = tokenizer.eos_token_id
+                pad_token_id = tokenizer.pad_token_id
+
+                if self._is_translategemma_model():
+                    try:
+                        end_of_turn_id = tokenizer.convert_tokens_to_ids(
+                            '<end_of_turn>')
+                        unk_id = tokenizer.unk_token_id
+                        if end_of_turn_id is not None and (unk_id is None or int(end_of_turn_id) != int(unk_id)):
+                            # transformers 支援 list eos_token_id：遇到任一個即停止
+                            eos_token_id = [int(end_of_turn_id)]
+                            if tokenizer.eos_token_id is not None:
+                                eos_token_id.append(
+                                    int(tokenizer.eos_token_id))
+                    except Exception:  # pylint: disable=broad-exception-caught
+                        pass
+
+                if pad_token_id is None:
+                    if isinstance(eos_token_id, list) and eos_token_id:
+                        pad_token_id = int(eos_token_id[0])
+                    else:
+                        pad_token_id = tokenizer.eos_token_id
+
                 generate_kwargs = {
                     **inputs,
                     'generation_config': generation_config,
-                    'pad_token_id': self._tokenizer.eos_token_id,
-                    'eos_token_id': self._tokenizer.eos_token_id,
+                    'pad_token_id': pad_token_id,
+                    'eos_token_id': eos_token_id,
                 }
 
                 if 'early_stopping' not in generate_kwargs and generation_params.get('num_beams', 1) > 1:
                     generate_kwargs['early_stopping'] = True
 
-                outputs = self._model.generate(**generate_kwargs)
+                outputs = model.generate(**generate_kwargs)
 
             # 只解碼新生成的 token
             prompt_len = int(inputs['input_ids'].shape[-1])
             generated_ids = outputs[0][prompt_len:]
-            generated_text = self._tokenizer.decode(
+            generated_text = tokenizer.decode(
                 generated_ids,
                 skip_special_tokens=True,
             ).strip()
@@ -365,18 +606,42 @@ class LocalModelProvider(BaseModelProvider):
     def unload(self):
         """卸載模型"""
         if self._model is not None:
-            del self._model
+            model = self._model
             self._model = None
+            del model
 
         if self._tokenizer is not None:
-            del self._tokenizer
+            tokenizer = self._tokenizer
             self._tokenizer = None
+            del tokenizer
+
+        # 先觸發 GC，確保 Python 層引用真正釋放
+        gc.collect()
 
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            # 同步避免尚未完成的 kernel 導致 cache 無法回收
+            try:
+                torch.cuda.synchronize()
+            except RuntimeError:  # pragma: no cover
+                pass
+
+            try:
+                torch.cuda.empty_cache()
+            except RuntimeError:  # pragma: no cover
+                pass
+
+            # 回收 IPC 相關的共享記憶體（有些情境下能再釋放一些保留量）
+            try:
+                torch.cuda.ipc_collect()
+            except (AttributeError, RuntimeError):  # pragma: no cover
+                pass
+
+        # 再做一次 GC，確保清理後的物件釋放
+        gc.collect()
 
         self._status = ModelStatus.NOT_LOADED
         self._device = None
+        self._loaded_model_path = None
         logger.info("模型已卸載（本地模式）")
 
     def _report_progress(self, progress: float, message: str):
@@ -395,7 +660,7 @@ class LocalModelProvider(BaseModelProvider):
         local_config = self._config.get('local', {})
         model_rel_path = local_config.get(
             'path',
-            'models/models--taide--TAIDE-LX-7B/snapshots/099c425ede93588d7df6e5279bd6b03f1371c979'
+            'models/TAIDE-LX-7B-Chat'
         )
 
         project_root = settings.PROJECT_ROOT

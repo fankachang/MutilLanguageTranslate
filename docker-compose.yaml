@@ -20,17 +20,12 @@ services:
       - DJANGO_DEBUG=False
       - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-your-secret-key-here}
-    # GPU 支援（如果有 NVIDIA GPU）
-    # 取消註解以下區塊以啟用 GPU
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+      - NVIDIA_VISIBLE_DEVICES=all
+    # GPU 支援（透過 CDI）
+    devices:
+      - nvidia.com/gpu=all
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health/" ]
       interval: 30s
       timeout: 10s
       retries: 3

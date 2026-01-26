@@ -17,7 +17,10 @@ from translator.errors import ErrorCode, TranslationError, get_error_message, ge
 from translator.models import TranslationRequest
 from translator.services.queue_service import get_queue_service
 from translator.services.translation_service import get_translation_service
+from translator.services.model_catalog_service import ModelCatalogService
+from translator.services.model_service import ModelService
 from translator.utils.config_loader import ConfigLoader
+from translator.utils.model_id import validate_model_id
 
 logger = logging.getLogger('translator')
 
@@ -35,7 +38,7 @@ def get_client_ip(request: HttpRequest) -> str:
 def translate(request: HttpRequest) -> JsonResponse:
     """
     POST /api/v1/translate/
-    
+
     執行文字翻譯
     """
     try:
@@ -52,13 +55,14 @@ def translate(request: HttpRequest) -> JsonResponse:
                 },
                 status=400
             )
-        
+
         # 取得請求參數
         text = data.get('text', '')
         source_language = data.get('source_language', 'auto')
         target_language = data.get('target_language')
         quality = data.get('quality', QualityMode.STANDARD)
-        
+        model_id = data.get('model_id')
+
         # 驗證必要參數
         if not target_language:
             return JsonResponse(
@@ -70,65 +74,93 @@ def translate(request: HttpRequest) -> JsonResponse:
                 },
                 status=400
             )
-        
+
         # 驗證品質參數
         if not QualityMode.is_valid(quality):
             quality = QualityMode.STANDARD
-        
+
+        # 可選：驗證 model_id（保持向後相容：未提供則沿用既有行為）
+        if model_id is not None:
+            model_id = validate_model_id(model_id)
+            available = {m.model_id for m in ModelCatalogService.list_models()}
+            if model_id not in available:
+                raise TranslationError(ErrorCode.MODEL_NOT_FOUND)
+
+            # 若使用者指定 model_id，且與目前 active model 不同：
+            # - policy=lazy：嘗試自動切換
+            # - policy=explicit：要求先呼叫切換 API
+            active_model_id = ModelService.get_active_model_id()
+            if active_model_id is not None and active_model_id != model_id:
+                model_config = ConfigLoader.get_model_config()
+                policy = (
+                    model_config.get('models', {})
+                    .get('switching', {})
+                    .get('policy', 'explicit')
+                )
+
+                if policy == 'lazy':
+                    ModelService.switch_model(model_id=model_id, force=False)
+                else:
+                    raise TranslationError(
+                        ErrorCode.MODEL_SWITCH_REJECTED,
+                        '目前模型尚未切換完成，請先切換模型後再翻譯',
+                    )
+
         # 建立翻譯請求
         translation_request = TranslationRequest(
             text=text,
             source_language=source_language,
             target_language=target_language,
             quality=quality,
+            model_id=model_id,
             client_ip=get_client_ip(request),
         )
-        
+
         # 執行翻譯
         service = get_translation_service()
         response = service.translate(translation_request)
-        
+
         # 建立回應
         result = {
             'request_id': response.request_id,
             'status': response.status,
         }
-        
+
         # 根據狀態添加不同的欄位
         if response.status == TranslationStatus.COMPLETED:
             result['translated_text'] = response.translated_text
             result['processing_time_ms'] = response.processing_time_ms
             result['execution_mode'] = response.execution_mode
-            
+
             if response.detected_language:
                 result['detected_language'] = response.detected_language
             if response.confidence_score is not None:
                 result['confidence_score'] = response.confidence_score
-                
+
             return JsonResponse(result, status=200)
-        
+
         elif response.status == TranslationStatus.PENDING:
             # 排隊中
             queue_service = get_queue_service()
             queue_status = queue_service.get_status(response.request_id)
-            
+
             result['queue_position'] = queue_status.get('queue_position', 0)
             result['estimated_wait_seconds'] = result['queue_position'] * 3
-            
+
             return JsonResponse(result, status=202)
-        
+
         elif response.status == TranslationStatus.FAILED:
             result['error'] = {
                 'code': response.error_code,
                 'message': response.error_message,
             }
-            
+
             http_status = get_http_status(response.error_code)
             return JsonResponse(result, status=http_status)
-        
+
         else:
             return JsonResponse(result, status=200)
-        
+
     except TranslationError as e:
         return JsonResponse(
             {
@@ -156,13 +188,13 @@ def translate(request: HttpRequest) -> JsonResponse:
 def translate_status(request: HttpRequest, request_id: UUID) -> JsonResponse:
     """
     GET /api/v1/translate/{request_id}/status/
-    
+
     查詢翻譯請求狀態
     """
     try:
         queue_service = get_queue_service()
         status = queue_service.get_status(str(request_id))
-        
+
         if status is None:
             return JsonResponse(
                 {
@@ -173,9 +205,9 @@ def translate_status(request: HttpRequest, request_id: UUID) -> JsonResponse:
                 },
                 status=404
             )
-        
+
         return JsonResponse(status, status=200)
-        
+
     except Exception as e:
         logger.error(f"查詢狀態 API 發生錯誤: {e}", exc_info=True)
         return JsonResponse(
@@ -193,18 +225,18 @@ def translate_status(request: HttpRequest, request_id: UUID) -> JsonResponse:
 def languages(request: HttpRequest) -> JsonResponse:
     """
     GET /api/v1/languages/
-    
+
     取得支援的語言清單
     """
     try:
         enabled_languages = ConfigLoader.get_enabled_languages()
-        
+
         return JsonResponse({
             'languages': [lang.to_dict() for lang in enabled_languages],
             'default_source_language': ConfigLoader.get_default_source_language(),
             'default_target_language': ConfigLoader.get_default_target_language(),
         })
-        
+
     except Exception as e:
         logger.error(f"語言 API 發生錯誤: {e}", exc_info=True)
         return JsonResponse(
@@ -219,10 +251,277 @@ def languages(request: HttpRequest) -> JsonResponse:
 
 
 @require_http_methods(["GET"])
+def models_list(request: HttpRequest) -> JsonResponse:
+    """GET /api/v1/models/ - 取得可用模型清單"""
+    try:
+        models = ModelCatalogService.list_models()
+        selected_model_id = request.session.get("selected_model_id")
+        active_model_id = ModelService.get_active_model_id()
+
+        return JsonResponse(
+            {
+                "models": [
+                    {
+                        "model_id": m.model_id,
+                        "display_name": m.display_name,
+                        "has_config": m.has_config,
+                        "last_error_message": m.last_error_message,
+                    }
+                    for m in models
+                ],
+                "active_model_id": active_model_id,
+                "selected_model_id": selected_model_id,
+            },
+            status=200,
+        )
+
+    except Exception as e:
+        logger.error(f"models_list 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+def models_selection(request: HttpRequest) -> JsonResponse:
+    """PUT /api/v1/models/selection/ - 設定本會話選定模型"""
+    try:
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {
+                    'error': {
+                        'code': 'INVALID_JSON',
+                        'message': '無效的 JSON 格式',
+                    }
+                },
+                status=400,
+            )
+
+        model_id = validate_model_id(data.get("model_id"))
+
+        available = {m.model_id for m in ModelCatalogService.list_models()}
+        if model_id not in available:
+            raise TranslationError(ErrorCode.MODEL_NOT_FOUND)
+
+        request.session["selected_model_id"] = model_id
+        active_model_id = ModelService.get_active_model_id()
+
+        return JsonResponse(
+            {
+                "selected_model_id": model_id,
+                "active_model_id": active_model_id,
+                "requires_switch": active_model_id != model_id,
+            },
+            status=200,
+        )
+
+    except TranslationError as e:
+        return JsonResponse(
+            {
+                'error': {
+                    'code': e.code,
+                    'message': e.message,
+                }
+            },
+            status=e.http_status,
+        )
+    except Exception as e:
+        logger.error(f"models_selection 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def models_switch(request: HttpRequest) -> JsonResponse:
+    """POST /api/v1/models/switch/ - 觸發切換 active model"""
+    try:
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {
+                    'error': {
+                        'code': 'INVALID_JSON',
+                        'message': '無效的 JSON 格式',
+                    }
+                },
+                status=400,
+            )
+
+        model_id = validate_model_id(data.get("model_id"))
+        force = bool(data.get("force", False))
+
+        available = {m.model_id for m in ModelCatalogService.list_models()}
+        if model_id not in available:
+            raise TranslationError(ErrorCode.MODEL_NOT_FOUND)
+
+        result = ModelService.switch_model(model_id=model_id, force=force)
+        return JsonResponse(result, status=200)
+
+    except TranslationError as e:
+        return JsonResponse(
+            {
+                'error': {
+                    'code': e.code,
+                    'message': e.message,
+                }
+            },
+            status=e.http_status,
+        )
+    except Exception as e:
+        logger.error(f"models_switch 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
+        )
+
+
+@require_http_methods(["GET"])
+def public_status(request: HttpRequest) -> JsonResponse:
+    """GET /api/v1/status/
+
+    公開系統狀態（匿名可用）。
+    沿用既有 admin_status 的回應 schema，避免狀態頁前端大改。
+    """
+    try:
+        from translator.services.model_service import get_model_service
+        from translator.services.monitor_service import get_monitor_service
+        from translator.services.queue_service import get_queue_service
+
+        monitor_service = get_monitor_service()
+        model_service = get_model_service()
+        queue_service = get_queue_service()
+
+        full_status = monitor_service.get_full_status()
+
+        active_model_id = ModelService.get_active_model_id()
+        model_status = {
+            'loaded': model_service.is_loaded(),
+            'name': active_model_id or '未選擇',
+            'execution_mode': model_service.get_execution_mode() if model_service.is_loaded() else None,
+            'active_model_id': active_model_id,
+        }
+
+        queue_status = queue_service.get_queue_stats()
+
+        return JsonResponse({
+            'status': 'ok',
+            'timestamp': full_status['timestamp'],
+            'system': full_status['system'],
+            'resources': {
+                'cpu': full_status['cpu'],
+                'memory': full_status['memory'],
+                'gpu': full_status['gpu'],
+                'disk': full_status['disk'],
+            },
+            'uptime': full_status['uptime'],
+            'model': model_status,
+            'queue': queue_status,
+        }, status=200)
+
+    except Exception as e:
+        logger.error(f"public_status 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
+        )
+
+
+@require_http_methods(["GET"])
+def public_statistics(request: HttpRequest) -> JsonResponse:
+    """GET /api/v1/statistics/
+
+    公開翻譯統計（匿名可用）。
+    """
+    try:
+        from translator.services.statistics_service import get_statistics_service
+
+        statistics_service = get_statistics_service()
+        stats = statistics_service.get_full_statistics()
+
+        return JsonResponse({
+            'status': 'ok',
+            'statistics': stats,
+        }, status=200)
+
+    except Exception as e:
+        logger.error(f"public_statistics 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
+        )
+
+
+@require_http_methods(["GET"])
+def public_model_load_progress(request: HttpRequest) -> JsonResponse:
+    """GET /api/v1/model/load-progress/
+
+    公開模型載入進度（匿名可用，只讀）。
+    觸發載入仍保留在 /api/v1/admin/model/load-progress/（POST）。
+    """
+    try:
+        from translator.services.model_service import get_model_service
+
+        model_service = get_model_service()
+
+        return JsonResponse({
+            'status': 'ok',
+            'progress': model_service.get_loading_progress(),
+            'model_status': model_service.get_status(),
+            'loaded': model_service.is_loaded(),
+            'error_message': model_service.get_error_message(),
+        }, status=200)
+
+    except Exception as e:
+        logger.error(f"public_model_load_progress 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
+        )
+
+
+@require_http_methods(["GET"])
 def admin_status(request: HttpRequest) -> JsonResponse:
     """
     GET /api/v1/admin/status/
-    
+
     取得系統狀態（需 IP 白名單）
     """
     # IP 驗證由中介軟體處理
@@ -230,25 +529,27 @@ def admin_status(request: HttpRequest) -> JsonResponse:
         from translator.services.model_service import get_model_service
         from translator.services.monitor_service import get_monitor_service
         from translator.services.queue_service import get_queue_service
-        
+
         monitor_service = get_monitor_service()
         model_service = get_model_service()
         queue_service = get_queue_service()
-        
+
         # 取得系統狀態
         full_status = monitor_service.get_full_status()
-        
+
+        active_model_id = ModelService.get_active_model_id()
         # 取得模型狀態
         model_status = {
             'loaded': model_service.is_loaded(),
-            'name': 'TAIDE-LX-7B',
+            'name': active_model_id or '未選擇',
             'execution_mode': model_service.get_execution_mode() if model_service.is_loaded() else None,
+            'active_model_id': active_model_id,
         }
-        
+
         # 取得佇列狀態
         # QueueService 提供 get_queue_stats()，返回佇列統計字典
         queue_status = queue_service.get_queue_stats()
-        
+
         return JsonResponse({
             'status': 'ok',
             'timestamp': full_status['timestamp'],
@@ -263,7 +564,7 @@ def admin_status(request: HttpRequest) -> JsonResponse:
             'model': model_status,
             'queue': queue_status,
         })
-        
+
     except Exception as e:
         logger.error(f"系統狀態 API 發生錯誤: {e}", exc_info=True)
         return JsonResponse(
@@ -281,13 +582,13 @@ def admin_status(request: HttpRequest) -> JsonResponse:
 def admin_statistics(request: HttpRequest) -> JsonResponse:
     """
     GET /api/v1/admin/statistics/
-    
+
     取得翻譯統計（需 IP 白名單）
     """
     # IP 驗證由中介軟體處理
     try:
         from translator.services.statistics_service import get_statistics_service
-        
+
         statistics_service = get_statistics_service()
         # 取得可序列化的完整統計字典
         stats = statistics_service.get_full_statistics()
@@ -296,7 +597,7 @@ def admin_statistics(request: HttpRequest) -> JsonResponse:
             'status': 'ok',
             'statistics': stats,
         }, status=200)
-        
+
     except Exception as e:
         logger.error(f"統計 API 發生錯誤: {e}", exc_info=True)
         return JsonResponse(
@@ -314,9 +615,9 @@ def admin_statistics(request: HttpRequest) -> JsonResponse:
 def health_check(request: HttpRequest) -> JsonResponse:
     """
     GET /api/health/
-    
+
     健康檢查端點
-    
+
     用於 Kubernetes/容器編排的健康檢查探針
     回傳系統各元件的健康狀態
     """
@@ -324,24 +625,24 @@ def health_check(request: HttpRequest) -> JsonResponse:
     from translator.services.model_service import get_model_service
     from translator.services.queue_service import get_queue_service
     from translator.utils.logger import get_translator_logger
-    
+
     translator_logger = get_translator_logger()
-    
+
     # 執行各項健康檢查
     checks = {}
     overall_status = 'healthy'
-    
+
     # 1. API 可用性檢查（能回應此請求即為健康）
     checks['api'] = {
         'status': 'healthy',
         'message': 'API 服務運作正常',
     }
-    
+
     # 2. 翻譯模型檢查
     try:
         model_service = get_model_service()
         model_loaded = model_service.is_loaded()
-        
+
         if model_loaded:
             checks['translation_model'] = {
                 'status': 'healthy',
@@ -366,7 +667,7 @@ def health_check(request: HttpRequest) -> JsonResponse:
             'message': f'模型檢查失敗: {str(e)}',
         }
         overall_status = 'unhealthy'
-    
+
     # 3. 佇列服務檢查
     try:
         queue_service = get_queue_service()
@@ -375,7 +676,7 @@ def health_check(request: HttpRequest) -> JsonResponse:
         # 佇列目前等待中的請求數命名為 'queued_requests'
         queue_size = queue_stats.get('queued_requests', 0)
         max_queue_size = 1000  # 假設佇列上限
-        
+
         if queue_size < max_queue_size * 0.8:
             checks['queue'] = {
                 'status': 'healthy',
@@ -403,13 +704,13 @@ def health_check(request: HttpRequest) -> JsonResponse:
             'message': f'佇列檢查失敗: {str(e)}',
         }
         overall_status = 'unhealthy'
-    
+
     # 4. 記憶體檢查
     try:
         import psutil
         memory = psutil.virtual_memory()
         memory_percent = memory.percent
-        
+
         if memory_percent < 80:
             checks['memory'] = {
                 'status': 'healthy',
@@ -441,10 +742,10 @@ def health_check(request: HttpRequest) -> JsonResponse:
             'status': 'unknown',
             'message': f'記憶體檢查失敗: {str(e)}',
         }
-    
+
     # 記錄健康檢查
     translator_logger.log_health_check(overall_status, checks)
-    
+
     # 根據狀態決定 HTTP 狀態碼
     if overall_status == 'healthy':
         http_status = 200
@@ -452,7 +753,7 @@ def health_check(request: HttpRequest) -> JsonResponse:
         http_status = 200  # 降級但仍可用
     else:
         http_status = 503  # 服務不可用
-    
+
     return JsonResponse({
         'status': overall_status,
         'timestamp': datetime.utcnow().isoformat() + 'Z',
@@ -464,9 +765,9 @@ def health_check(request: HttpRequest) -> JsonResponse:
 def readiness_probe(request: HttpRequest) -> JsonResponse:
     """
     GET /api/ready/
-    
+
     就緒探針 - Kubernetes readiness probe
-    
+
     檢查服務是否準備好接收流量
     - 模型已載入
     - 佇列未滿
@@ -474,10 +775,10 @@ def readiness_probe(request: HttpRequest) -> JsonResponse:
     from datetime import datetime
     from translator.services.model_service import get_model_service
     from translator.services.queue_service import get_queue_service
-    
+
     ready = True
     reasons = []
-    
+
     # 檢查模型狀態
     try:
         model_service = get_model_service()
@@ -487,13 +788,13 @@ def readiness_probe(request: HttpRequest) -> JsonResponse:
     except Exception as e:
         ready = False
         reasons.append(f'模型服務異常: {str(e)}')
-    
+
     # 檢查佇列容量
     try:
         queue_service = get_queue_service()
         queue_stats = queue_service.get_queue_stats()
         waiting = queue_stats.get('queued_requests', 0)
-        
+
         # 如果佇列超過 800 個待處理，暫停接收新請求
         if waiting >= 800:
             ready = False
@@ -501,7 +802,7 @@ def readiness_probe(request: HttpRequest) -> JsonResponse:
     except Exception as e:
         ready = False
         reasons.append(f'佇列服務異常: {str(e)}')
-    
+
     # 檢查是否正在關閉
     try:
         from translator.services.shutdown_service import get_shutdown_service
@@ -511,7 +812,7 @@ def readiness_probe(request: HttpRequest) -> JsonResponse:
             reasons.append('服務正在關閉中')
     except Exception:
         pass  # 關閉服務未初始化時忽略
-    
+
     if ready:
         return JsonResponse({
             'status': 'ready',
@@ -529,22 +830,22 @@ def readiness_probe(request: HttpRequest) -> JsonResponse:
 def liveness_probe(request: HttpRequest) -> JsonResponse:
     """
     GET /api/live/
-    
+
     存活探針 - Kubernetes liveness probe
-    
+
     檢查服務是否存活（能夠回應請求）
     這是最基本的檢查，只要能回應即為存活
     """
     from datetime import datetime
-    
+
     alive = True
     reasons = []
-    
+
     # 基本記憶體檢查（避免 OOM）
     try:
         import psutil
         memory = psutil.virtual_memory()
-        
+
         # 如果記憶體使用超過 95%，可能需要重啟
         if memory.percent > 95:
             alive = False
@@ -553,7 +854,7 @@ def liveness_probe(request: HttpRequest) -> JsonResponse:
         pass  # psutil 未安裝時跳過
     except Exception as e:
         logger.warning(f"存活探針記憶體檢查失敗: {e}")
-    
+
     if alive:
         return JsonResponse({
             'status': 'alive',
@@ -573,19 +874,68 @@ def admin_model_load_progress(request: HttpRequest) -> JsonResponse:
     """
     GET /api/v1/admin/model/load-progress/
     POST /api/v1/admin/model/load-progress/
-    
+
     取得模型載入進度或觸發模型載入
-    
+
     GET：取得當前進度（0.0-100.0）
     POST：觸發模型載入（若模型尚未載入）
     """
     try:
         from translator.services.model_service import get_model_service
-        
+        from translator.services.model_service import ModelService
+        from translator.utils.model_id import validate_model_id
+
         model_service = get_model_service()
-        
+
         if request.method == 'POST':
+            # 可選：指定要載入/切換的 model_id
+            payload = {}
+            if request.body:
+                try:
+                    payload = json.loads(request.body)
+                except json.JSONDecodeError:
+                    payload = {}
+
+            requested_model_id = payload.get('model_id')
+            force = bool(payload.get('force', False))
+
             # 觸發模型載入
+            if requested_model_id:
+                requested_model_id = validate_model_id(requested_model_id)
+
+                if model_service.is_loaded() and ModelService.get_active_model_id() == requested_model_id:
+                    return JsonResponse({
+                        'status': 'already_loaded',
+                        'progress': 100.0,
+                        'message': '模型已載入',
+                        'model_status': 'loaded',
+                        'active_model_id': ModelService.get_active_model_id(),
+                    }, status=200)
+
+                import threading
+
+                def switch_in_background():
+                    try:
+                        ModelService.switch_model(
+                            model_id=requested_model_id, force=force)
+                    except TranslationError as e:
+                        logger.warning("模型切換失敗: %s", e)
+                    except Exception as e:  # pylint: disable=broad-exception-caught
+                        logger.error("模型切換過程中發生未預期錯誤: %s", e, exc_info=True)
+
+                loader_thread = threading.Thread(
+                    target=switch_in_background, daemon=True)
+                loader_thread.start()
+
+                return JsonResponse({
+                    'status': 'switching',
+                    'progress': model_service.get_loading_progress(),
+                    'message': '模型切換/載入已啟動',
+                    'model_status': 'loading',
+                    'requested_model_id': requested_model_id,
+                    'active_model_id': ModelService.get_active_model_id(),
+                }, status=202)
+
             if model_service.is_loaded():
                 return JsonResponse({
                     'status': 'already_loaded',
@@ -593,36 +943,41 @@ def admin_model_load_progress(request: HttpRequest) -> JsonResponse:
                     'message': '模型已載入',
                     'model_status': 'loaded',
                 }, status=200)
-            
+
             # 在背景執行緒中載入
             import threading
-            
+
             def load_in_background():
-                model_service.load_model()
-            
-            loader_thread = threading.Thread(target=load_in_background, daemon=True)
+                try:
+                    model_service.load_model()
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.error("模型載入過程中發生未預期錯誤: %s", e, exc_info=True)
+
+            loader_thread = threading.Thread(
+                target=load_in_background, daemon=True)
             loader_thread.start()
-            
+
             return JsonResponse({
                 'status': 'loading',
                 'progress': model_service.get_loading_progress(),
                 'message': '模型載入已啟動',
                 'model_status': 'loading',
             }, status=202)
-        
+
         else:  # GET
             # 取得當前進度
             progress = model_service.get_loading_progress()
             status = model_service.get_status()
-            
+
             return JsonResponse({
                 'status': 'ok',
                 'progress': progress,
                 'model_status': status,
                 'loaded': model_service.is_loaded(),
                 'error_message': model_service.get_error_message(),
+                'active_model_id': ModelService.get_active_model_id(),
             }, status=200)
-            
+
     except Exception as e:
         logger.error(f"模型載入進度 API 發生錯誤: {e}", exc_info=True)
         return JsonResponse(
@@ -638,15 +993,81 @@ def admin_model_load_progress(request: HttpRequest) -> JsonResponse:
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def admin_model_unload(request: HttpRequest) -> JsonResponse:
+    """POST /api/v1/admin/model/unload/
+
+    卸載目前模型以釋放資源（需 IP 白名單）。
+    """
+    try:
+        from translator.services.model_service import get_model_service
+        from translator.enums import ModelStatus
+
+        model_service = get_model_service()
+
+        if model_service.get_status() == ModelStatus.LOADING:
+            return JsonResponse(
+                {
+                    'error': {
+                        'code': ErrorCode.MODEL_SWITCH_IN_PROGRESS,
+                        'message': '模型載入/切換中，請稍後再卸載',
+                    }
+                },
+                status=409,
+            )
+
+        if not model_service.is_loaded():
+            return JsonResponse({
+                'status': 'not_loaded',
+                'loaded': False,
+                'progress': 0.0,
+                'model_status': model_service.get_status(),
+                'active_model_id': ModelService.get_active_model_id(),
+            }, status=200)
+
+        model_service.unload_model()
+
+        return JsonResponse({
+            'status': 'ok',
+            'loaded': False,
+            'progress': model_service.get_loading_progress(),
+            'model_status': model_service.get_status(),
+            'active_model_id': ModelService.get_active_model_id(),
+        }, status=200)
+
+    except TranslationError as e:
+        return JsonResponse(
+            {
+                'error': {
+                    'code': e.code,
+                    'message': e.message,
+                }
+            },
+            status=e.http_status,
+        )
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error(f"admin_model_unload 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def admin_test_model(request: HttpRequest) -> JsonResponse:
     """
     POST /api/v1/admin/model/test/
-    
+
     測試載入小型模型（例如 gpt2）以驗證當前環境的載入/量化/offload 設定
-    
+
     請求參數：
     - model_name (可選): 要測試的模型名稱，預設為 'gpt2'
-    
+
     回應：
     - success: 測試是否成功
     - message: 測試結果訊息
@@ -654,24 +1075,24 @@ def admin_test_model(request: HttpRequest) -> JsonResponse:
     """
     try:
         from translator.services.model_service import get_model_service
-        
+
         # 解析請求參數
         try:
             data = json.loads(request.body) if request.body else {}
         except json.JSONDecodeError:
             data = {}
-        
+
         model_name = data.get('model_name', 'gpt2')
-        
+
         # 執行測試
         model_service = get_model_service()
         result = model_service.test_load_small_model(model_name)
-        
+
         if result['success']:
             return JsonResponse(result, status=200)
         else:
             return JsonResponse(result, status=500)
-            
+
     except Exception as e:
         logger.error(f"測試模型 API 發生錯誤: {e}", exc_info=True)
         return JsonResponse(
@@ -682,4 +1103,3 @@ def admin_test_model(request: HttpRequest) -> JsonResponse:
             },
             status=500
         )
-

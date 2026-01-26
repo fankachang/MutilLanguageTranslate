@@ -40,15 +40,17 @@ RUN pip install --no-cache-dir --upgrade pip \
 # 複製應用程式程式碼
 COPY config/ ./config/
 COPY translation_project/ ./translation_project/
-COPY logs/ ./logs/
+
+# 切換到 Django 專案目錄（避免 import 路徑錯誤）
+WORKDIR ${APP_HOME}/translation_project
 
 # 建立必要目錄
 RUN mkdir -p ${MODEL_PATH} \
-    && mkdir -p ./logs \
+    && mkdir -p ${APP_HOME}/logs \
     && mkdir -p ./staticfiles
 
 # 收集靜態檔案
-RUN cd translation_project && python manage.py collectstatic --noinput
+RUN python manage.py collectstatic --noinput
 
 # 建立非 root 使用者
 RUN groupadd -r translator \
@@ -71,9 +73,8 @@ VOLUME ["${MODEL_PATH}"]
 # 啟動命令
 # 使用 uvicorn 作為 ASGI 伺服器
 CMD ["python", "-m", "uvicorn", \
-     "translation_project.asgi:application", \
+    "translation_project.asgi:application", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
      "--workers", "1", \
-     "--loop", "uvloop", \
-     "--lifespan", "on"]
+    "--lifespan", "off"]

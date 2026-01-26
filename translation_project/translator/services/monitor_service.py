@@ -35,18 +35,18 @@ logger = logging.getLogger('translator')
 class MonitorService:
     """
     系統監控服務
-    
+
     提供系統資源使用狀況的查詢功能。
     """
-    
+
     def __init__(self):
         self._start_time = time.time()
         self._process = psutil.Process() if PSUTIL_AVAILABLE else None
-    
+
     def get_system_info(self) -> Dict[str, Any]:
         """
         取得系統基本資訊
-        
+
         Returns:
             系統資訊字典
         """
@@ -59,11 +59,11 @@ class MonitorService:
             'python_version': platform.python_version(),
             'hostname': platform.node(),
         }
-    
+
     def get_cpu_info(self) -> Dict[str, Any]:
         """
         取得 CPU 使用資訊
-        
+
         Returns:
             CPU 資訊字典
         """
@@ -72,19 +72,20 @@ class MonitorService:
                 'available': False,
                 'error': 'psutil 未安裝',
             }
-        
+
         try:
             # 系統整體 CPU
             cpu_percent = psutil.cpu_percent(interval=0.5)
             cpu_count = psutil.cpu_count()
             cpu_count_logical = psutil.cpu_count(logical=True)
-            
+
             # 每個 CPU 核心的使用率
             per_cpu = psutil.cpu_percent(percpu=True)
-            
+
             # 程序 CPU 使用率
-            process_cpu = self._process.cpu_percent(interval=0.1) if self._process else 0
-            
+            process_cpu = self._process.cpu_percent(
+                interval=0.1) if self._process else 0
+
             return {
                 'available': True,
                 'percent': cpu_percent,
@@ -99,11 +100,11 @@ class MonitorService:
                 'available': False,
                 'error': str(e),
             }
-    
+
     def get_memory_info(self) -> Dict[str, Any]:
         """
         取得記憶體使用資訊
-        
+
         Returns:
             記憶體資訊字典
         """
@@ -112,14 +113,14 @@ class MonitorService:
                 'available': False,
                 'error': 'psutil 未安裝',
             }
-        
+
         try:
             # 系統記憶體
             mem = psutil.virtual_memory()
-            
+
             # 程序記憶體
             process_mem = self._process.memory_info() if self._process else None
-            
+
             return {
                 'available': True,
                 'total_bytes': mem.total,
@@ -140,11 +141,11 @@ class MonitorService:
                 'available': False,
                 'error': str(e),
             }
-    
+
     def get_gpu_info(self) -> Dict[str, Any]:
         """
         取得 GPU 使用資訊
-        
+
         Returns:
             GPU 資訊字典
         """
@@ -154,34 +155,45 @@ class MonitorService:
                 'cuda_available': False,
                 'error': 'torch 未安裝',
             }
-        
+
         try:
             cuda_available = torch.cuda.is_available()
-            
+
             if not cuda_available:
                 return {
                     'available': False,
                     'cuda_available': False,
                     'reason': 'CUDA 不可用',
                 }
-            
+
             device_count = torch.cuda.device_count()
             devices = []
-            
+
             for i in range(device_count):
                 props = torch.cuda.get_device_properties(i)
-                
+
                 # 取得記憶體使用
                 try:
-                    torch.cuda.set_device(i)
-                    allocated = torch.cuda.memory_allocated(i)
-                    reserved = torch.cuda.memory_reserved(i)
-                    total = props.total_memory
-                except Exception:
+                    # 使用 device context，避免改動全域 current device
+                    with torch.cuda.device(i):
+                        allocated = torch.cuda.memory_allocated()
+                        reserved = torch.cuda.memory_reserved()
+
+                        # mem_get_info 反映 CUDA driver 視角的實際 free/total
+                        try:
+                            driver_free, driver_total = torch.cuda.mem_get_info()
+                        except (AttributeError, RuntimeError, TypeError):
+                            driver_total = props.total_memory
+                            driver_free = max(driver_total - allocated, 0)
+
+                    total = driver_total if driver_total else props.total_memory
+                except (AttributeError, RuntimeError, TypeError, ValueError):
                     allocated = 0
                     reserved = 0
+                    driver_total = props.total_memory
+                    driver_free = props.total_memory
                     total = props.total_memory
-                
+
                 devices.append({
                     'index': i,
                     'name': props.name,
@@ -191,13 +203,18 @@ class MonitorService:
                     'allocated_memory_gb': round(allocated / (1024**3), 2),
                     'reserved_memory_bytes': reserved,
                     'reserved_memory_gb': round(reserved / (1024**3), 2),
-                    'free_memory_bytes': total - allocated,
-                    'free_memory_gb': round((total - allocated) / (1024**3), 2),
+                    # driver_free 才是「目前可用」的 GPU 記憶體（比 total-allocated 更貼近實況）
+                    'free_memory_bytes': driver_free,
+                    'free_memory_gb': round(driver_free / (1024**3), 2),
                     'memory_percent': round(allocated / total * 100, 2) if total > 0 else 0,
+                    'driver_free_memory_bytes': driver_free,
+                    'driver_free_memory_gb': round(driver_free / (1024**3), 2),
+                    'driver_total_memory_bytes': total,
+                    'driver_total_memory_gb': round(total / (1024**3), 2),
                     'compute_capability': f"{props.major}.{props.minor}",
                     'multi_processor_count': props.multi_processor_count,
                 })
-            
+
             return {
                 'available': True,
                 'cuda_available': True,
@@ -206,7 +223,7 @@ class MonitorService:
                 'current_device': torch.cuda.current_device(),
                 'devices': devices,
             }
-            
+
         except Exception as e:
             logger.error(f"取得 GPU 資訊失敗: {e}")
             return {
@@ -214,11 +231,11 @@ class MonitorService:
                 'cuda_available': False,
                 'error': str(e),
             }
-    
+
     def get_disk_info(self) -> Dict[str, Any]:
         """
         取得磁碟使用資訊
-        
+
         Returns:
             磁碟資訊字典
         """
@@ -227,11 +244,11 @@ class MonitorService:
                 'available': False,
                 'error': 'psutil 未安裝',
             }
-        
+
         try:
             # 取得當前工作目錄的磁碟
             disk = psutil.disk_usage(os.getcwd())
-            
+
             return {
                 'available': True,
                 'total_bytes': disk.total,
@@ -248,25 +265,25 @@ class MonitorService:
                 'available': False,
                 'error': str(e),
             }
-    
+
     def get_uptime(self) -> Dict[str, Any]:
         """
         取得系統與應用程式執行時間
-        
+
         Returns:
             執行時間資訊字典
         """
         try:
             # 應用程式執行時間
             app_uptime_seconds = time.time() - self._start_time
-            
+
             # 系統執行時間
             if PSUTIL_AVAILABLE:
                 boot_time = psutil.boot_time()
                 system_uptime_seconds = time.time() - boot_time
             else:
                 system_uptime_seconds = None
-            
+
             return {
                 'app_uptime_seconds': int(app_uptime_seconds),
                 'app_uptime_formatted': self._format_duration(app_uptime_seconds),
@@ -279,11 +296,11 @@ class MonitorService:
             return {
                 'error': str(e),
             }
-    
+
     def get_full_status(self) -> Dict[str, Any]:
         """
         取得完整的系統狀態
-        
+
         Returns:
             包含所有監控資訊的字典
         """
@@ -296,28 +313,28 @@ class MonitorService:
             'disk': self.get_disk_info(),
             'uptime': self.get_uptime(),
         }
-    
+
     def get_health_check(self) -> Dict[str, Any]:
         """
         取得健康檢查結果
-        
+
         Returns:
             健康檢查結果字典
         """
         cpu_info = self.get_cpu_info()
         memory_info = self.get_memory_info()
-        
+
         # 判斷健康狀態
         issues = []
-        
+
         if cpu_info.get('available') and cpu_info.get('percent', 0) > 90:
             issues.append('CPU 使用率過高')
-        
+
         if memory_info.get('available') and memory_info.get('percent', 0) > 90:
             issues.append('記憶體使用率過高')
-        
+
         status = 'healthy' if not issues else 'warning'
-        
+
         return {
             'status': status,
             'issues': issues,
@@ -325,25 +342,25 @@ class MonitorService:
             'cpu_percent': cpu_info.get('percent'),
             'memory_percent': memory_info.get('percent'),
         }
-    
+
     def _format_duration(self, seconds: float) -> str:
         """
         格式化時間長度
-        
+
         Args:
             seconds: 秒數
-            
+
         Returns:
             格式化的時間字串
         """
         if seconds is None:
             return '未知'
-        
+
         days = int(seconds // 86400)
         hours = int((seconds % 86400) // 3600)
         minutes = int((seconds % 3600) // 60)
         secs = int(seconds % 60)
-        
+
         parts = []
         if days > 0:
             parts.append(f"{days} 天")
@@ -353,7 +370,7 @@ class MonitorService:
             parts.append(f"{minutes} 分鐘")
         if secs > 0 or not parts:
             parts.append(f"{secs} 秒")
-        
+
         return ' '.join(parts)
 
 

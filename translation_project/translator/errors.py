@@ -10,23 +10,30 @@ from typing import Dict, Tuple
 class ErrorCode:
     """
     錯誤代碼常數
-    
+
     驗證錯誤 (400)：
     - VALIDATION_EMPTY_TEXT: 原文為空
     - VALIDATION_TEXT_TOO_LONG: 超過 10,000 字元
     - VALIDATION_SAME_LANGUAGE: 來源與目標語言相同
     - VALIDATION_INVALID_LANGUAGE: 無效的語言代碼
-    
+
     服務錯誤 (503/504)：
     - QUEUE_FULL: 請求佇列已滿
     - SERVICE_UNAVAILABLE: 翻譯服務無法使用
     - TRANSLATION_TIMEOUT: 翻譯逾時
     - MODEL_NOT_LOADED: 模型未載入
     - NETWORK_ERROR: 網路連線失敗
-    
+
     權限錯誤 (403)：
     - ACCESS_DENIED: IP 位址不在白名單中
-    
+
+    模型切換/查找錯誤：
+    - MODEL_NOT_FOUND: 找不到指定模型
+    - MODEL_INVALID_ID: model_id 不合法
+    - MODEL_SWITCH_IN_PROGRESS: 模型切換中
+    - MODEL_SWITCH_REJECTED: 切換被拒絕（政策/忙碌）
+    - MODEL_SWITCH_FAILED: 切換失敗
+
     內部錯誤 (500)：
     - INTERNAL_ERROR: 內部錯誤
     """
@@ -35,17 +42,24 @@ class ErrorCode:
     VALIDATION_TEXT_TOO_LONG = "VALIDATION_TEXT_TOO_LONG"
     VALIDATION_SAME_LANGUAGE = "VALIDATION_SAME_LANGUAGE"
     VALIDATION_INVALID_LANGUAGE = "VALIDATION_INVALID_LANGUAGE"
-    
+
     # 服務錯誤
     QUEUE_FULL = "QUEUE_FULL"
     SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
     TRANSLATION_TIMEOUT = "TRANSLATION_TIMEOUT"
     MODEL_NOT_LOADED = "MODEL_NOT_LOADED"
     NETWORK_ERROR = "NETWORK_ERROR"
-    
+
+    # 模型切換/查找
+    MODEL_NOT_FOUND = "MODEL_NOT_FOUND"
+    MODEL_INVALID_ID = "MODEL_INVALID_ID"
+    MODEL_SWITCH_IN_PROGRESS = "MODEL_SWITCH_IN_PROGRESS"
+    MODEL_SWITCH_REJECTED = "MODEL_SWITCH_REJECTED"
+    MODEL_SWITCH_FAILED = "MODEL_SWITCH_FAILED"
+
     # 權限錯誤
     ACCESS_DENIED = "ACCESS_DENIED"
-    
+
     # 內部錯誤
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
@@ -69,7 +83,7 @@ ERROR_MESSAGES: Dict[str, Tuple[str, int]] = {
         "無效的語言代碼",
         400
     ),
-    
+
     # 服務錯誤 (503/504)
     ErrorCode.QUEUE_FULL: (
         "系統繁忙，請稍後再試",
@@ -91,13 +105,35 @@ ERROR_MESSAGES: Dict[str, Tuple[str, int]] = {
         "網路連線失敗，請檢查網路狀態",
         503
     ),
-    
+
     # 權限錯誤 (403)
     ErrorCode.ACCESS_DENIED: (
         "IP 位址不在白名單中",
         403
     ),
-    
+
+    # 模型切換/查找
+    ErrorCode.MODEL_INVALID_ID: (
+        "模型識別不合法",
+        400
+    ),
+    ErrorCode.MODEL_NOT_FOUND: (
+        "找不到指定模型",
+        404
+    ),
+    ErrorCode.MODEL_SWITCH_IN_PROGRESS: (
+        "模型切換中，請稍後再試",
+        409
+    ),
+    ErrorCode.MODEL_SWITCH_REJECTED: (
+        "模型切換被拒絕，請稍後再試",
+        409
+    ),
+    ErrorCode.MODEL_SWITCH_FAILED: (
+        "模型切換失敗",
+        500
+    ),
+
     # 內部錯誤 (500)
     ErrorCode.INTERNAL_ERROR: (
         "系統內部錯誤，請聯繫管理員",
@@ -109,10 +145,10 @@ ERROR_MESSAGES: Dict[str, Tuple[str, int]] = {
 def get_error_message(code: str) -> str:
     """
     取得錯誤代碼對應的中文訊息
-    
+
     Args:
         code: 錯誤代碼
-        
+
     Returns:
         中文錯誤訊息
     """
@@ -124,10 +160,10 @@ def get_error_message(code: str) -> str:
 def get_http_status(code: str) -> int:
     """
     取得錯誤代碼對應的 HTTP 狀態碼
-    
+
     Args:
         code: 錯誤代碼
-        
+
     Returns:
         HTTP 狀態碼
     """
@@ -139,7 +175,7 @@ def get_http_status(code: str) -> int:
 class TranslationError(Exception):
     """
     翻譯錯誤例外類別
-    
+
     Attributes:
         code: 錯誤代碼
         message: 錯誤訊息
@@ -150,11 +186,11 @@ class TranslationError(Exception):
         self.message = message or get_error_message(code)
         self.http_status = get_http_status(code)
         super().__init__(self.message)
-    
+
     def __str__(self) -> str:
         """字串表示"""
         return f"{self.code}: {self.message}"
-    
+
     def to_dict(self) -> dict:
         """轉換為字典格式"""
         return {

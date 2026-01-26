@@ -40,13 +40,15 @@ cd MutilLanguageTranslate
 ### 2. 建立虛擬環境
 
 ```bash
-python -m venv venv
+# 若專案根目錄已存在 .venv/，請不要重建，直接啟用即可。
+
+python -m venv .venv
 
 # Windows
-venv\Scripts\activate
+.venv\Scripts\activate
 
 # Linux/macOS
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### 3. 安裝相依套件
@@ -105,7 +107,7 @@ python -c "from transformers import AutoModelForCausalLM; AutoModelForCausalLM.f
 cd translation_project
 
 # 開發模式
-..\.venv\Scripts\python manage.py runserver
+..\.venv\Scripts\python.exe manage.py runserver
 
 # 生產模式（使用 uvicorn）
 uvicorn translation_project.asgi:application --host 0.0.0.0 --port 8000
@@ -114,6 +116,19 @@ uvicorn translation_project.asgi:application --host 0.0.0.0 --port 8000
 ### 7. 開啟瀏覽器
 
 造訪 http://localhost:8000 開始使用翻譯服務。
+
+### 重要：模型載入改為手動啟動
+
+為了避免啟動時就佔用大量資源，服務啟動後**不會自動載入模型**。
+
+- 請開啟 http://localhost:8000/admin/status/
+- 在「要啟動的模型」選擇模型後按下「選擇後開始載入」
+
+若你想維持舊行為（啟動就自動載入），可設定環境變數：
+
+```powershell
+$env:TRANSLATOR_AUTO_LOAD_MODEL_ON_STARTUP = "1"
+```
 
 ## GPU 記憶體最佳化（自動偵測）
 
@@ -185,7 +200,28 @@ curl -X POST http://localhost:8000/api/v1/admin/model/test/ -H "Content-Type: ap
 
 造訪 http://localhost:8000 開始使用翻譯服務。
 
-## 容器部署
+## 容器部署（Podman / Docker / Compose）
+
+> 驗證重點：服務啟動後 `GET /api/health/` 需回 200。
+
+### Windows 使用 Podman 的前置（必要）
+
+Podman 在 Windows 上需要透過 VM（預設為 WSL）執行 Linux containers，因此第一次使用前請先把 Podman 的 machine 啟起來：
+
+```powershell
+# 第一次使用（會建立 VM）
+podman machine init --now
+
+# 之後要啟動/停止 VM
+podman machine start
+podman machine stop
+
+# 檢查狀態
+podman machine list
+podman info
+```
+
+建議安裝 Podman Desktop 來管理 machine/映像/容器（可選，但對 Windows 方便）。
 
 ### 使用 Podman
 
@@ -198,14 +234,66 @@ podman run -d \
   --name translation-service \
   -p 8000:8000 \
   -v ./models:/app/models:ro \
+  -v ./config:/app/config:ro \
   -v ./logs:/app/logs \
   translation-service
 ```
 
-### 使用 Docker Compose（未完成）
+### 使用 Podman Compose（推薦，直接沿用 docker-compose.yaml）
+
+本專案已提供 `docker-compose.yaml`，Podman 可以用 `podman compose` 直接啟動：
 
 ```bash
-docker-compose up -d
+podman compose -f docker-compose.yaml up -d
+```
+
+停止並清掉容器/網路：
+
+```bash
+podman compose -f docker-compose.yaml down
+```
+
+注意：`podman compose` 會呼叫外部 compose provider（例如 `docker-compose` 或 `podman-compose`）。
+若你執行 `podman compose` 時提示找不到 provider，請先安裝其中一個：
+
+```powershell
+# 建議：安裝到本專案的 .venv，避免使用系統 Python
+.\.venv\Scripts\python.exe -m pip install podman-compose
+
+# (可選，但推薦) 指定 podman compose 要使用 .venv 裡的 provider
+$env:PODMAN_COMPOSE_PROVIDER = (Resolve-Path .\.venv\Scripts\podman-compose.exe).Path
+```
+
+或是直接用 `.venv` 內的 `podman-compose`（完全不依賴系統 Python）：
+
+```powershell
+.\.venv\Scripts\podman-compose.exe -f docker-compose.yaml up -d
+```
+
+### 使用 Docker
+
+```bash
+docker build -t translation-service -f Containerfile .
+
+docker run -d \
+  --name translation-service \
+  -p 8000:8000 \
+  -v ./models:/app/models:ro \
+  -v ./config:/app/config:ro \
+  -v ./logs:/app/logs \
+  translation-service
+```
+
+### 使用 Docker Compose
+
+```bash
+docker compose -f docker-compose.yaml up -d
+```
+
+### 健康檢查
+
+```bash
+curl -f http://localhost:8000/api/health/
 ```
 
 ## 目錄結構

@@ -1,8 +1,11 @@
-"""
-獨立測試 TAIDE-LX-7B-Chat 模型載入
+"""獨立測試 TAIDE-LX-7B-Chat 模型載入
 不透過 Django，直接測試 transformers 載入
+
+此測試需要真正載入 ML 模型，執行時間較長。
+使用 pytest -m slow 執行此測試。
 """
 
+import pytest
 import torch
 import logging
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
@@ -11,8 +14,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.slow
 def test_model_loading():
-    """測試模型載入"""
+    """測試模型載入（慢速測試）"""
     model_path = "models/TAIDE-LX-7B-Chat"
 
     logger.info("=" * 60)

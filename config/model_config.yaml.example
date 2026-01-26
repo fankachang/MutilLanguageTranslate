@@ -50,6 +50,27 @@ provider:
   #   # 最大重試次數
   #   max_retries: 2
 
+# === 模型清單 / 切換設定（002-model-switch-container）===
+# 注意：此段為新功能預留設定鍵；目前程式若未使用，會被安全地忽略，不影響既有行為。
+models:
+  # 模型目錄掃描（用於列出可用模型清單）
+  catalog:
+    enabled: true
+    # directory: "models"  # 預設使用 Django settings.MODELS_DIR；需要時才覆寫
+    required_config: "config.json"  # 最低門檻：models/<model_id>/config.json 存在
+
+  # 預設模型（當使用者尚未選擇或選擇失效時的 fallback）
+  selection:
+    default_model_id: "TAIDE-LX-7B-Chat"
+
+  # 模型切換政策
+  switching:
+    # policy:
+    #   - explicit: 需呼叫切換 API 才會切換
+    #   - lazy: 翻譯請求帶 model_id 時可自動切換（預計於 US1 實作）
+    policy: "explicit"
+    lock_timeout_seconds: 30
+
 # 生成參數設定
 generation:
   # 快速模式參數

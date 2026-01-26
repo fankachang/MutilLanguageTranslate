@@ -151,6 +151,7 @@
                 if (settings.defaultTargetLang) {
                     this.targetLang = settings.defaultTargetLang;
                 }
+
             },
 
             // 更新字數
@@ -199,17 +200,19 @@
                 this.confidenceScore = null;
 
                 try {
+                    const payload = {
+                        text: this.sourceText,
+                        source_language: this.sourceLang,
+                        target_language: this.targetLang,
+                        quality: sessionStorage.getItem('quality') || 'standard',
+                    };
+
                     const response = await fetch('/api/v1/translate/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({
-                            text: this.sourceText,
-                            source_language: this.sourceLang,
-                            target_language: this.targetLang,
-                            quality: sessionStorage.getItem('quality') || 'standard',
-                        }),
+                        body: JSON.stringify(payload),
                     });
 
                     const data = await response.json();
@@ -230,7 +233,11 @@
                         // 可以在這裡實作輪詢
 
                     } else if (data.error) {
-                        this.errorMessage = data.error.message || '翻譯失敗';
+                        if (data.error.code === 'MODEL_NOT_LOADED') {
+                            this.errorMessage = '翻譯模型尚未載入。請到 /admin/status/ 選擇模型並啟動載入後再試。';
+                        } else {
+                            this.errorMessage = data.error.message || '翻譯失敗';
+                        }
 
                     } else {
                         this.errorMessage = '翻譯失敗，請稍後再試';

@@ -13,12 +13,7 @@
     <div class="admin-header">
         <h1 class="admin-title">📊 系統狀態監控</h1>
         <div class="admin-actions">
-            <button 
-                type="button" 
-                class="btn btn-secondary btn-sm"
-                @click="refresh"
-                :disabled="loading"
-            >
+            <button type="button" class="btn btn-secondary btn-sm" @click="refresh" :disabled="loading">
                 <span x-show="!loading">🔄 重新整理</span>
                 <span x-show="loading">
                     <span class="spinner" style="width: 14px; height: 14px;"></span>
@@ -31,38 +26,71 @@
             </label>
         </div>
     </div>
-    
+
     <!-- 錯誤訊息 -->
     <div x-show="error" class="error-container error-danger" style="margin-bottom: 20px;">
         <span x-text="error"></span>
         <button type="button" class="error-close" @click="error = ''">&times;</button>
     </div>
-    
+
     <!-- 模型載入進度（若模型未載入） -->
-    <div x-show="modelLoading || (!modelLoaded && !modelLoadingComplete)" class="model-loading-container" style="margin-bottom: 20px; padding: 20px; background: #f5f5f5; border-radius: 8px; border-left: 4px solid #2196F3;">
+    <div x-show="modelLoading || (!modelLoaded && !modelLoadingComplete)" class="model-loading-container"
+        style="margin-bottom: 20px; padding: 20px; background: #f5f5f5; border-radius: 8px; border-left: 4px solid #2196F3;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
             <div style="font-weight: bold; font-size: 16px;">🤖 模型載入中...</div>
             <span style="font-size: 14px; color: #666;" x-text="modelLoadProgress.toFixed(1) + '%'"></span>
         </div>
+        <!-- 模型選擇（只放在狀態頁） -->
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+            <label for="admin-model-select" style="font-size: 14px; color: #333; font-weight: 600;">要啟動的模型</label>
+            <select id="admin-model-select" class="form-select" x-model="selectedModelId"
+                style="width: auto; min-width: 260px;">
+                <option value="">（請選擇）</option>
+                <template x-for="m in models" :key="m.model_id">
+                    <option :value="m.model_id" x-text="m.display_name"></option>
+                </template>
+            </select>
+            <span style="font-size: 13px; color: #666;" x-show="activeModelId">目前 active：<span
+                    x-text="activeModelId"></span></span>
+            <span style="font-size: 13px; color: #b00020;" x-show="!hasAvailableModels">未偵測到可用模型</span>
+        </div>
         <div class="progress-bar" style="height: 8px;">
-            <div 
-                class="progress-bar-fill" 
-                :style="'width: ' + modelLoadProgress + '%'"
-            ></div>
+            <div class="progress-bar-fill" :style="'width: ' + modelLoadProgress + '%'"></div>
         </div>
         <div style="margin-top: 8px; font-size: 13px; color: #666;" x-text="modelLoadMessage"></div>
         <div x-show="!modelLoading && !modelLoaded" style="margin-top: 12px;">
-            <button 
-                type="button" 
-                class="btn btn-primary"
-                @click="startModelLoading"
-                :disabled="modelLoading"
-            >
-                開始載入模型
+            <button type="button" class="btn btn-primary" @click="startModelLoading"
+                :disabled="modelLoading || !selectedModelId">
+                選擇後開始載入
             </button>
         </div>
     </div>
-    
+
+    <!-- 模型已載入（提供 Stop/卸載） -->
+    <div x-show="modelLoaded && !modelLoading" class="model-loading-container"
+        style="margin-bottom: 20px; padding: 20px; background: #f1fff4; border-radius: 8px; border-left: 4px solid #4CAF50;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div>
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 6px;">🤖 模型已載入</div>
+                <div style="font-size: 13px; color: #2e7d32;" x-show="activeModelId">
+                    active：<span x-text="activeModelId"></span>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button type="button" class="btn btn-danger" @click="stopModel" :disabled="loading || modelUnloading">
+                    <span x-show="!modelUnloading">Stop（卸載）</span>
+                    <span x-show="modelUnloading">
+                        <span class="spinner" style="width: 14px; height: 14px;"></span>
+                        卸載中...
+                    </span>
+                </button>
+            </div>
+        </div>
+        <div style="margin-top: 10px; font-size: 13px; color: #666;">
+            卸載後可再次使用上方 Start 載入或切換模型。
+        </div>
+    </div>
+
     <!-- 狀態總覽 -->
     <div class="status-overview">
         <div class="status-card" :class="getHealthClass()">
@@ -76,7 +104,7 @@
                 <div class="status-value" x-text="getHealthText()"></div>
             </div>
         </div>
-        
+
         <div class="status-card">
             <div class="status-icon">🖥️</div>
             <div class="status-content">
@@ -84,7 +112,7 @@
                 <div class="status-value" x-text="uptime"></div>
             </div>
         </div>
-        
+
         <div class="status-card" :class="{ 'status-warning': modelStatus !== '已載入' }">
             <div class="status-icon">🤖</div>
             <div class="status-content">
@@ -92,7 +120,7 @@
                 <div class="status-value" x-text="modelStatus"></div>
             </div>
         </div>
-        
+
         <div class="status-card">
             <div class="status-icon">📝</div>
             <div class="status-content">
@@ -101,7 +129,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 資源使用狀況 -->
     <div class="section-title">資源使用狀況</div>
     <div class="resource-grid">
@@ -112,18 +140,15 @@
                 <span class="resource-value" x-text="cpuPercent + '%'"></span>
             </div>
             <div class="progress-bar">
-                <div 
-                    class="progress-bar-fill" 
-                    :class="getProgressClass(cpuPercent)"
-                    :style="'width: ' + cpuPercent + '%'"
-                ></div>
+                <div class="progress-bar-fill" :class="getProgressClass(cpuPercent)"
+                    :style="'width: ' + cpuPercent + '%'"></div>
             </div>
             <div class="resource-detail">
                 <span>核心數：<span x-text="cpuCores"></span></span>
                 <span>程序使用：<span x-text="processCpu + '%'"></span></span>
             </div>
         </div>
-        
+
         <!-- 記憶體 -->
         <div class="resource-card">
             <div class="resource-header">
@@ -131,18 +156,15 @@
                 <span class="resource-value" x-text="memoryPercent + '%'"></span>
             </div>
             <div class="progress-bar">
-                <div 
-                    class="progress-bar-fill" 
-                    :class="getProgressClass(memoryPercent)"
-                    :style="'width: ' + memoryPercent + '%'"
-                ></div>
+                <div class="progress-bar-fill" :class="getProgressClass(memoryPercent)"
+                    :style="'width: ' + memoryPercent + '%'"></div>
             </div>
             <div class="resource-detail">
                 <span>使用：<span x-text="memoryUsed"></span> GB</span>
                 <span>總計：<span x-text="memoryTotal"></span> GB</span>
             </div>
         </div>
-        
+
         <!-- GPU -->
         <div class="resource-card" x-show="gpuAvailable">
             <div class="resource-header">
@@ -150,18 +172,15 @@
                 <span class="resource-value" x-text="gpuMemoryPercent + '%'"></span>
             </div>
             <div class="progress-bar">
-                <div 
-                    class="progress-bar-fill" 
-                    :class="getProgressClass(gpuMemoryPercent)"
-                    :style="'width: ' + gpuMemoryPercent + '%'"
-                ></div>
+                <div class="progress-bar-fill" :class="getProgressClass(gpuMemoryPercent)"
+                    :style="'width: ' + gpuMemoryPercent + '%'"></div>
             </div>
             <div class="resource-detail">
                 <span x-text="gpuName"></span>
                 <span>VRAM：<span x-text="gpuMemoryUsed"></span> / <span x-text="gpuMemoryTotal"></span> GB</span>
             </div>
         </div>
-        
+
         <!-- 磁碟 -->
         <div class="resource-card">
             <div class="resource-header">
@@ -169,11 +188,8 @@
                 <span class="resource-value" x-text="diskPercent + '%'"></span>
             </div>
             <div class="progress-bar">
-                <div 
-                    class="progress-bar-fill" 
-                    :class="getProgressClass(diskPercent)"
-                    :style="'width: ' + diskPercent + '%'"
-                ></div>
+                <div class="progress-bar-fill" :class="getProgressClass(diskPercent)"
+                    :style="'width: ' + diskPercent + '%'"></div>
             </div>
             <div class="resource-detail">
                 <span>使用：<span x-text="diskUsed"></span> GB</span>
@@ -181,7 +197,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 統計資訊 -->
     <div class="section-title">翻譯統計（24 小時）</div>
     <div class="stats-grid">
@@ -202,7 +218,7 @@
             <div class="stat-label">目前連線數</div>
         </div>
     </div>
-    
+
     <!-- 系統資訊 -->
     <div class="section-title">系統資訊</div>
     <div class="info-table">
@@ -232,275 +248,352 @@
 
 {% block extra_js %}
 <script>
-function adminStatusApp() {
-    return {
-        // 狀態
-        loading: false,
-        error: '',
-        autoRefresh: false,
-        refreshInterval: null,
-        modelLoading: false,
-        modelLoaded: false,
-        modelLoadingComplete: false,
-        modelLoadProgress: 0,
-        modelLoadMessage: '',
-        progressCheckInterval: null,
-        
-        // 系統健康
-        systemHealth: 'healthy',
-        uptime: '-',
-        modelStatus: '-',
-        queueStatus: '-',
-        
-        // CPU
-        cpuPercent: 0,
-        cpuCores: 0,
-        processCpu: 0,
-        
-        // 記憶體
-        memoryPercent: 0,
-        memoryUsed: 0,
-        memoryTotal: 0,
-        
-        // GPU
-        gpuAvailable: false,
-        gpuName: '',
-        gpuMemoryPercent: 0,
-        gpuMemoryUsed: 0,
-        gpuMemoryTotal: 0,
-        
-        // 磁碟
-        diskPercent: 0,
-        diskUsed: 0,
-        diskFree: 0,
-        
-        // 統計
-        totalRequests: 0,
-        successRate: 0,
-        avgProcessingTime: 0,
-        activeConnections: 0,
-        
-        // 系統資訊
-        platform: '-',
-        hostname: '-',
-        pythonVersion: '-',
-        executionMode: '-',
-        lastUpdate: '-',
-        
-        async init() {
-            await this.refresh();
-            this.checkModelLoadProgress();
-        },
-        
-        async startModelLoading() {
-            this.modelLoading = true;
-            this.modelLoadProgress = 0;
-            this.modelLoadMessage = '準備載入...';
-            
-            try {
-                const response = await fetch('/api/v1/admin/model/load-progress/', {
-                    method: 'POST',
-                });
-                
-                if (response.ok) {
-                    // 開始定期檢查進度
-                    this.checkModelLoadProgressLoop();
-                } else {
-                    this.error = '無法啟動模型載入';
+    function adminStatusApp() {
+        return {
+            // 狀態
+            loading: false,
+            error: '',
+            autoRefresh: false,
+            refreshInterval: null,
+            modelLoading: false,
+            modelLoaded: false,
+            modelLoadingComplete: false,
+            modelLoadProgress: 0,
+            modelLoadMessage: '',
+            progressCheckInterval: null,
+            modelUnloading: false,
+
+            // 模型清單（for selection）
+            models: [],
+            selectedModelId: '',
+            activeModelId: null,
+            hasAvailableModels: true,
+
+            // 系統健康
+            systemHealth: 'healthy',
+            uptime: '-',
+            modelStatus: '-',
+            queueStatus: '-',
+
+            // CPU
+            cpuPercent: 0,
+            cpuCores: 0,
+            processCpu: 0,
+
+            // 記憶體
+            memoryPercent: 0,
+            memoryUsed: 0,
+            memoryTotal: 0,
+
+            // GPU
+            gpuAvailable: false,
+            gpuName: '',
+            gpuMemoryPercent: 0,
+            gpuMemoryUsed: 0,
+            gpuMemoryTotal: 0,
+
+            // 磁碟
+            diskPercent: 0,
+            diskUsed: 0,
+            diskFree: 0,
+
+            // 統計
+            totalRequests: 0,
+            successRate: 0,
+            avgProcessingTime: 0,
+            activeConnections: 0,
+
+            // 系統資訊
+            platform: '-',
+            hostname: '-',
+            pythonVersion: '-',
+            executionMode: '-',
+            lastUpdate: '-',
+
+            async init() {
+                await this.refresh();
+                await this.loadModels();
+                this.checkModelLoadProgress();
+            },
+
+            async loadModels() {
+                try {
+                    const response = await fetch('/api/v1/models/', { method: 'GET' });
+                    if (!response.ok) {
+                        this.models = [];
+                        this.hasAvailableModels = false;
+                        return;
+                    }
+
+                    const data = await response.json();
+                    this.models = data.models || [];
+                    this.hasAvailableModels = this.models.length > 0;
+                    this.activeModelId = data.active_model_id || this.activeModelId;
+
+                    // 預設選擇：active model（若有），否則第一個可用模型
+                    const availableIds = new Set(this.models.map(m => m.model_id));
+                    if (this.activeModelId && availableIds.has(this.activeModelId)) {
+                        this.selectedModelId = this.activeModelId;
+                    } else if (!this.selectedModelId || !availableIds.has(this.selectedModelId)) {
+                        this.selectedModelId = this.models[0]?.model_id || '';
+                    }
+                } catch (e) {
+                    console.error('載入模型清單失敗:', e);
+                    this.models = [];
+                    this.hasAvailableModels = false;
+                }
+            },
+
+            async startModelLoading() {
+                this.modelLoading = true;
+                this.modelLoadProgress = 0;
+                this.modelLoadMessage = '準備載入...';
+
+                try {
+                    const response = await fetch('/api/v1/admin/model/load-progress/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model_id: this.selectedModelId, force: false }),
+                    });
+
+                    if (response.ok) {
+                        // 開始定期檢查進度
+                        this.checkModelLoadProgressLoop();
+                    } else {
+                        this.error = '無法啟動模型載入';
+                        this.modelLoading = false;
+                    }
+                } catch (e) {
+                    console.error('啟動模型載入失敗:', e);
+                    this.error = '無法連線到伺服器';
                     this.modelLoading = false;
                 }
-            } catch (e) {
-                console.error('啟動模型載入失敗:', e);
-                this.error = '無法連線到伺服器';
-                this.modelLoading = false;
-            }
-        },
-        
-        async checkModelLoadProgress() {
-            try {
-                const response = await fetch('/api/v1/admin/model/load-progress/');
-                if (response.ok) {
-                    const data = await response.json();
-                    this.modelLoaded = data.loaded;
-                    this.modelLoadProgress = data.progress;
-                    
-                    if (data.model_status === 'loading') {
-                        this.modelLoading = true;
-                        this.modelLoadMessage = '模型載入中...';
-                    } else if (data.loaded) {
-                        this.modelLoading = false;
-                        this.modelLoaded = true;
-                        this.modelLoadProgress = 100;
-                        this.modelLoadMessage = '模型已成功載入！';
-                        this.modelLoadingComplete = true;
-                    } else if (data.error_message) {
-                        this.modelLoading = false;
-                        this.modelLoadMessage = `錯誤: ${data.error_message}`;
+            },
+
+            async stopModel() {
+                if (!confirm('確定要卸載目前模型嗎？（將釋放 GPU/CPU 記憶體）')) return;
+
+                this.modelUnloading = true;
+                this.error = '';
+
+                try {
+                    const response = await fetch('/api/v1/admin/model/unload/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({}),
+                    });
+
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        this.error = data.error?.message || '卸載模型失敗';
+                        return;
+                    }
+
+                    // 重設模型狀態（讓 Start 區塊出現）
+                    this.modelLoaded = false;
+                    this.modelLoading = false;
+                    this.modelLoadingComplete = false;
+                    this.modelLoadProgress = 0;
+                    this.modelLoadMessage = '模型已卸載';
+                    this.activeModelId = data.active_model_id || null;
+
+                    // 更新整體狀態
+                    await this.loadModels();
+                    await this.refresh();
+                } catch (e) {
+                    console.error('卸載模型失敗:', e);
+                    this.error = '無法連線到伺服器';
+                } finally {
+                    this.modelUnloading = false;
+                }
+            },
+
+            async checkModelLoadProgress() {
+                try {
+                    const response = await fetch('/api/v1/model/load-progress/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.modelLoaded = data.loaded;
+                        this.modelLoadProgress = data.progress;
+
+                        if (data.model_status === 'loading') {
+                            this.modelLoading = true;
+                            this.modelLoadMessage = '模型載入中...';
+                        } else if (data.loaded) {
+                            this.modelLoading = false;
+                            this.modelLoaded = true;
+                            this.modelLoadProgress = 100;
+                            this.modelLoadMessage = '模型已成功載入！';
+                            this.modelLoadingComplete = true;
+                        } else if (data.error_message) {
+                            this.modelLoading = false;
+                            this.modelLoadMessage = `錯誤: ${data.error_message}`;
+                        }
+                    }
+                } catch (e) {
+                    console.error('檢查模型進度失敗:', e);
+                }
+            },
+
+            checkModelLoadProgressLoop() {
+                // 每 500ms 檢查一次進度
+                this.progressCheckInterval = setInterval(() => {
+                    this.checkModelLoadProgress();
+
+                    // 如果模型已載入，停止檢查
+                    if (this.modelLoaded) {
+                        clearInterval(this.progressCheckInterval);
+                    }
+                }, 500);
+            },
+
+            async refresh() {
+                this.loading = true;
+                this.error = '';
+
+                try {
+                    // 取得系統狀態
+                    const statusResponse = await fetch('/api/v1/status/');
+                    const statusData = await statusResponse.json();
+
+                    if (statusResponse.ok) {
+                        this.updateStatus(statusData);
+                    } else {
+                        this.error = statusData.error?.message || '取得狀態失敗';
+                    }
+
+                    // 取得統計資訊
+                    const statsResponse = await fetch('/api/v1/statistics/');
+                    const statsData = await statsResponse.json();
+
+                    if (statsResponse.ok) {
+                        this.updateStatistics(statsData);
+                    }
+
+                    // 檢查模型狀態
+                    await this.checkModelLoadProgress();
+
+                } catch (e) {
+                    console.error('重新整理失敗:', e);
+                    this.error = '無法連線到伺服器';
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            updateStatus(data) {
+                // 執行時間
+                this.uptime = data.uptime?.app_uptime_formatted || '-';
+
+                // 模型狀態
+                this.modelStatus = data.model?.loaded ? '已載入' : '未載入';
+                this.executionMode = data.model?.execution_mode || '-';
+                this.modelLoaded = data.model?.loaded || false;
+                this.activeModelId = data.model?.active_model_id || this.activeModelId;
+
+                // 佇列狀態
+                const queue = data.queue || {};
+                this.queueStatus = `處理中 ${queue.processing || 0} / 等待 ${queue.waiting || 0}`;
+
+                // CPU
+                if (data.resources?.cpu?.available) {
+                    this.cpuPercent = data.resources.cpu.percent || 0;
+                    this.cpuCores = data.resources.cpu.count_logical || 0;
+                    this.processCpu = data.resources.cpu.process_percent || 0;
+                }
+
+                // 記憶體
+                if (data.resources?.memory?.available) {
+                    this.memoryPercent = data.resources.memory.percent || 0;
+                    this.memoryUsed = data.resources.memory.used_gb || 0;
+                    this.memoryTotal = data.resources.memory.total_gb || 0;
+                }
+
+                // GPU
+                if (data.resources?.gpu?.available && data.resources.gpu.devices?.length > 0) {
+                    this.gpuAvailable = true;
+                    const gpu = data.resources.gpu.devices[0];
+                    this.gpuName = gpu.name || '';
+                    this.gpuMemoryPercent = gpu.memory_percent || 0;
+                    this.gpuMemoryUsed = gpu.allocated_memory_gb || 0;
+                    this.gpuMemoryTotal = gpu.total_memory_gb || 0;
+                } else {
+                    this.gpuAvailable = false;
+                }
+
+                // 磁碟
+                if (data.resources?.disk?.available) {
+                    this.diskPercent = data.resources.disk.percent || 0;
+                    this.diskUsed = data.resources.disk.used_gb || 0;
+                    this.diskFree = data.resources.disk.free_gb || 0;
+                }
+
+                // 系統資訊
+                if (data.system) {
+                    this.platform = `${data.system.platform} ${data.system.platform_release}`;
+                    this.hostname = data.system.hostname || '-';
+                    this.pythonVersion = data.system.python_version || '-';
+                }
+
+                // 判斷健康狀態
+                this.updateHealthStatus();
+
+                // 更新時間
+                this.lastUpdate = new Date().toLocaleTimeString('zh-TW');
+            },
+
+            updateStatistics(data) {
+                const stats = data.statistics || {};
+                this.totalRequests = stats.total_requests || 0;
+                this.successRate = stats.success_rate || 0;
+                this.avgProcessingTime = Math.round(stats.avg_processing_time_ms || 0);
+                this.activeConnections = stats.active_connections || 0;
+            },
+
+            updateHealthStatus() {
+                if (this.cpuPercent > 90 || this.memoryPercent > 90) {
+                    this.systemHealth = 'error';
+                } else if (this.cpuPercent > 70 || this.memoryPercent > 70) {
+                    this.systemHealth = 'warning';
+                } else {
+                    this.systemHealth = 'healthy';
+                }
+            },
+
+            toggleAutoRefresh() {
+                if (this.autoRefresh) {
+                    this.refreshInterval = setInterval(() => this.refresh(), 30000);
+                } else {
+                    if (this.refreshInterval) {
+                        clearInterval(this.refreshInterval);
+                        this.refreshInterval = null;
                     }
                 }
-            } catch (e) {
-                console.error('檢查模型進度失敗:', e);
-            }
-        },
-        
-        checkModelLoadProgressLoop() {
-            // 每 500ms 檢查一次進度
-            this.progressCheckInterval = setInterval(() => {
-                this.checkModelLoadProgress();
-                
-                // 如果模型已載入，停止檢查
-                if (this.modelLoaded) {
-                    clearInterval(this.progressCheckInterval);
-                }
-            }, 500);
-        },
-        
-        async refresh() {
-            this.loading = true;
-            this.error = '';
-            
-            try {
-                // 取得系統狀態
-                const statusResponse = await fetch('/api/v1/admin/status/');
-                const statusData = await statusResponse.json();
-                
-                if (statusResponse.ok) {
-                    this.updateStatus(statusData);
-                } else {
-                    this.error = statusData.error?.message || '取得狀態失敗';
-                }
-                
-                // 取得統計資訊
-                const statsResponse = await fetch('/api/v1/admin/statistics/');
-                const statsData = await statsResponse.json();
-                
-                if (statsResponse.ok) {
-                    this.updateStatistics(statsData);
-                }
-                
-                // 檢查模型狀態
-                await this.checkModelLoadProgress();
-                
-            } catch (e) {
-                console.error('重新整理失敗:', e);
-                this.error = '無法連線到伺服器';
-            } finally {
-                this.loading = false;
-            }
-        },
-        
-        updateStatus(data) {
-            // 執行時間
-            this.uptime = data.uptime?.app_uptime_formatted || '-';
-            
-            // 模型狀態
-            this.modelStatus = data.model?.loaded ? '已載入' : '未載入';
-            this.executionMode = data.model?.execution_mode || '-';
-            this.modelLoaded = data.model?.loaded || false;
-            
-            // 佇列狀態
-            const queue = data.queue || {};
-            this.queueStatus = `處理中 ${queue.processing || 0} / 等待 ${queue.waiting || 0}`;
-            
-            // CPU
-            if (data.resources?.cpu?.available) {
-                this.cpuPercent = data.resources.cpu.percent || 0;
-                this.cpuCores = data.resources.cpu.count_logical || 0;
-                this.processCpu = data.resources.cpu.process_percent || 0;
-            }
-            
-            // 記憶體
-            if (data.resources?.memory?.available) {
-                this.memoryPercent = data.resources.memory.percent || 0;
-                this.memoryUsed = data.resources.memory.used_gb || 0;
-                this.memoryTotal = data.resources.memory.total_gb || 0;
-            }
-            
-            // GPU
-            if (data.resources?.gpu?.available && data.resources.gpu.devices?.length > 0) {
-                this.gpuAvailable = true;
-                const gpu = data.resources.gpu.devices[0];
-                this.gpuName = gpu.name || '';
-                this.gpuMemoryPercent = gpu.memory_percent || 0;
-                this.gpuMemoryUsed = gpu.allocated_memory_gb || 0;
-                this.gpuMemoryTotal = gpu.total_memory_gb || 0;
-            } else {
-                this.gpuAvailable = false;
-            }
-            
-            // 磁碟
-            if (data.resources?.disk?.available) {
-                this.diskPercent = data.resources.disk.percent || 0;
-                this.diskUsed = data.resources.disk.used_gb || 0;
-                this.diskFree = data.resources.disk.free_gb || 0;
-            }
-            
-            // 系統資訊
-            if (data.system) {
-                this.platform = `${data.system.platform} ${data.system.platform_release}`;
-                this.hostname = data.system.hostname || '-';
-                this.pythonVersion = data.system.python_version || '-';
-            }
-            
-            // 判斷健康狀態
-            this.updateHealthStatus();
-            
-            // 更新時間
-            this.lastUpdate = new Date().toLocaleTimeString('zh-TW');
-        },
-        
-        updateStatistics(data) {
-            const stats = data.statistics || {};
-            this.totalRequests = stats.total_requests || 0;
-            this.successRate = stats.success_rate || 0;
-            this.avgProcessingTime = Math.round(stats.avg_processing_time_ms || 0);
-            this.activeConnections = stats.active_connections || 0;
-        },
-        
-        updateHealthStatus() {
-            if (this.cpuPercent > 90 || this.memoryPercent > 90) {
-                this.systemHealth = 'error';
-            } else if (this.cpuPercent > 70 || this.memoryPercent > 70) {
-                this.systemHealth = 'warning';
-            } else {
-                this.systemHealth = 'healthy';
-            }
-        },
-        
-        toggleAutoRefresh() {
-            if (this.autoRefresh) {
-                this.refreshInterval = setInterval(() => this.refresh(), 30000);
-            } else {
-                if (this.refreshInterval) {
-                    clearInterval(this.refreshInterval);
-                    this.refreshInterval = null;
-                }
-            }
-        },
-        
-        getHealthClass() {
-            return {
-                'status-healthy': this.systemHealth === 'healthy',
-                'status-warning': this.systemHealth === 'warning',
-                'status-error': this.systemHealth === 'error',
-            };
-        },
-        
-        getHealthText() {
-            const texts = {
-                healthy: '正常運作',
-                warning: '需要注意',
-                error: '異常',
-            };
-            return texts[this.systemHealth] || '-';
-        },
-        
-        getProgressClass(percent) {
-            if (percent > 90) return 'progress-danger';
-            if (percent > 70) return 'progress-warning';
-            return 'progress-normal';
-        },
-    };
-}
+            },
+
+            getHealthClass() {
+                return {
+                    'status-healthy': this.systemHealth === 'healthy',
+                    'status-warning': this.systemHealth === 'warning',
+                    'status-error': this.systemHealth === 'error',
+                };
+            },
+
+            getHealthText() {
+                const texts = {
+                    healthy: '正常運作',
+                    warning: '需要注意',
+                    error: '異常',
+                };
+                return texts[this.systemHealth] || '-';
+            },
+
+            getProgressClass(percent) {
+                if (percent > 90) return 'progress-danger';
+                if (percent > 70) return 'progress-warning';
+                return 'progress-normal';
+            },
+        };
+    }
 </script>
 {% endblock %}

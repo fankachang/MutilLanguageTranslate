@@ -38,5 +38,7 @@ urlpatterns = [
     path('admin/statistics/', views.admin_statistics, name='admin_statistics'),
     path('admin/model/load-progress/', views.admin_model_load_progress,
          name='admin_model_load_progress'),
+    path('admin/model/unload/', views.admin_model_unload,
+         name='admin_model_unload'),
     path('admin/model/test/', views.admin_test_model, name='admin_test_model'),
 ]

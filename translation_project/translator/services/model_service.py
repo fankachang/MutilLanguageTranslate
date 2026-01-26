@@ -387,6 +387,7 @@ class ModelService:
                 self._provider = None
 
             self._provider_type = None
+            ModelService._active_model_id = None
             logger.info("模型已卸載")
 
 

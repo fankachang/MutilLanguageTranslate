@@ -416,11 +416,12 @@ def public_status(request: HttpRequest) -> JsonResponse:
 
         full_status = monitor_service.get_full_status()
 
+        active_model_id = ModelService.get_active_model_id()
         model_status = {
             'loaded': model_service.is_loaded(),
-            'name': 'TAIDE-LX-7B',
+            'name': active_model_id or '未選擇',
             'execution_mode': model_service.get_execution_mode() if model_service.is_loaded() else None,
-            'active_model_id': getattr(model_service.__class__, '_active_model_id', None),
+            'active_model_id': active_model_id,
         }
 
         queue_status = queue_service.get_queue_stats()
@@ -536,11 +537,13 @@ def admin_status(request: HttpRequest) -> JsonResponse:
         # 取得系統狀態
         full_status = monitor_service.get_full_status()
 
+        active_model_id = ModelService.get_active_model_id()
         # 取得模型狀態
         model_status = {
             'loaded': model_service.is_loaded(),
-            'name': 'TAIDE-LX-7B',
+            'name': active_model_id or '未選擇',
             'execution_mode': model_service.get_execution_mode() if model_service.is_loaded() else None,
+            'active_model_id': active_model_id,
         }
 
         # 取得佇列狀態
@@ -985,6 +988,72 @@ def admin_model_load_progress(request: HttpRequest) -> JsonResponse:
                 }
             },
             status=500
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def admin_model_unload(request: HttpRequest) -> JsonResponse:
+    """POST /api/v1/admin/model/unload/
+
+    卸載目前模型以釋放資源（需 IP 白名單）。
+    """
+    try:
+        from translator.services.model_service import get_model_service
+        from translator.enums import ModelStatus
+
+        model_service = get_model_service()
+
+        if model_service.get_status() == ModelStatus.LOADING:
+            return JsonResponse(
+                {
+                    'error': {
+                        'code': ErrorCode.MODEL_SWITCH_IN_PROGRESS,
+                        'message': '模型載入/切換中，請稍後再卸載',
+                    }
+                },
+                status=409,
+            )
+
+        if not model_service.is_loaded():
+            return JsonResponse({
+                'status': 'not_loaded',
+                'loaded': False,
+                'progress': 0.0,
+                'model_status': model_service.get_status(),
+                'active_model_id': ModelService.get_active_model_id(),
+            }, status=200)
+
+        model_service.unload_model()
+
+        return JsonResponse({
+            'status': 'ok',
+            'loaded': False,
+            'progress': model_service.get_loading_progress(),
+            'model_status': model_service.get_status(),
+            'active_model_id': ModelService.get_active_model_id(),
+        }, status=200)
+
+    except TranslationError as e:
+        return JsonResponse(
+            {
+                'error': {
+                    'code': e.code,
+                    'message': e.message,
+                }
+            },
+            status=e.http_status,
+        )
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error(f"admin_model_unload 發生錯誤: {e}", exc_info=True)
+        return JsonResponse(
+            {
+                'error': {
+                    'code': ErrorCode.INTERNAL_ERROR,
+                    'message': get_error_message(ErrorCode.INTERNAL_ERROR),
+                }
+            },
+            status=500,
         )
 
 

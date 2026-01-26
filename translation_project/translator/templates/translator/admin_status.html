@@ -66,6 +66,31 @@
         </div>
     </div>
 
+    <!-- 模型已載入（提供 Stop/卸載） -->
+    <div x-show="modelLoaded && !modelLoading" class="model-loading-container"
+        style="margin-bottom: 20px; padding: 20px; background: #f1fff4; border-radius: 8px; border-left: 4px solid #4CAF50;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div>
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 6px;">🤖 模型已載入</div>
+                <div style="font-size: 13px; color: #2e7d32;" x-show="activeModelId">
+                    active：<span x-text="activeModelId"></span>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button type="button" class="btn btn-danger" @click="stopModel" :disabled="loading || modelUnloading">
+                    <span x-show="!modelUnloading">Stop（卸載）</span>
+                    <span x-show="modelUnloading">
+                        <span class="spinner" style="width: 14px; height: 14px;"></span>
+                        卸載中...
+                    </span>
+                </button>
+            </div>
+        </div>
+        <div style="margin-top: 10px; font-size: 13px; color: #666;">
+            卸載後可再次使用上方 Start 載入或切換模型。
+        </div>
+    </div>
+
     <!-- 狀態總覽 -->
     <div class="status-overview">
         <div class="status-card" :class="getHealthClass()">
@@ -236,6 +261,7 @@
             modelLoadProgress: 0,
             modelLoadMessage: '',
             progressCheckInterval: null,
+            modelUnloading: false,
 
             // 模型清單（for selection）
             models: [],
@@ -341,6 +367,44 @@
                     console.error('啟動模型載入失敗:', e);
                     this.error = '無法連線到伺服器';
                     this.modelLoading = false;
+                }
+            },
+
+            async stopModel() {
+                if (!confirm('確定要卸載目前模型嗎？（將釋放 GPU/CPU 記憶體）')) return;
+
+                this.modelUnloading = true;
+                this.error = '';
+
+                try {
+                    const response = await fetch('/api/v1/admin/model/unload/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({}),
+                    });
+
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        this.error = data.error?.message || '卸載模型失敗';
+                        return;
+                    }
+
+                    // 重設模型狀態（讓 Start 區塊出現）
+                    this.modelLoaded = false;
+                    this.modelLoading = false;
+                    this.modelLoadingComplete = false;
+                    this.modelLoadProgress = 0;
+                    this.modelLoadMessage = '模型已卸載';
+                    this.activeModelId = data.active_model_id || null;
+
+                    // 更新整體狀態
+                    await this.loadModels();
+                    await this.refresh();
+                } catch (e) {
+                    console.error('卸載模型失敗:', e);
+                    this.error = '無法連線到伺服器';
+                } finally {
+                    this.modelUnloading = false;
                 }
             },
 

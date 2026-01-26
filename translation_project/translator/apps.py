@@ -15,13 +15,21 @@ class TranslatorConfig(AppConfig):
         import sys
         logger = logging.getLogger('translator')
 
-        # 在開發模式下，Django 會啟動兩個進程（reloader 與 main）
-        # 檢查是否使用 --noreload
+        # 只在「真的要啟動 Web 服務」時才載入模型。
+        # 避免在 build 階段（collectstatic）、migrate、測試等管理指令時不必要地載入大型模型。
+        argv_lower = " ".join(sys.argv).lower()
+        is_runserver = 'runserver' in sys.argv
+        is_uvicorn = 'uvicorn' in argv_lower
+
+        if not (is_runserver or is_uvicorn):
+            return
+
+        # Django runserver 在開發模式下會有 reloader 與 main 兩個進程。
+        # 只有 runserver 才需要 RUN_MAIN 判斷；uvicorn/容器啟動不會設定 RUN_MAIN。
         use_noreload = '--noreload' in sys.argv
         is_main_process = os.environ.get('RUN_MAIN') == 'true'
 
-        # 如果有 reloader 且不是 main 進程，則跳過
-        if not use_noreload and not is_main_process:
+        if is_runserver and (not use_noreload) and (not is_main_process):
             logger.info("跳過 reloader 進程的模型載入")
             return
 
@@ -43,13 +51,14 @@ class TranslatorConfig(AppConfig):
                     if success:
                         logger.info("=" * 60)
                         logger.info("✓ 翻譯模型載入完成，系統已就緒")
-                        logger.info(
-                            f"✓ 執行模式: {model_service.get_execution_mode()}")
+                        logger.info("✓ 執行模式: %s", model_service.get_execution_mode())
                         logger.info("=" * 60)
                     else:
                         logger.error("=" * 60)
                         logger.error(
-                            f"✗ 翻譯模型載入失敗: {model_service.get_error_message()}")
+                            "✗ 翻譯模型載入失敗: %s",
+                            model_service.get_error_message(),
+                        )
                         logger.error("=" * 60)
 
                 # 啟動背景執行緒
@@ -60,5 +69,5 @@ class TranslatorConfig(AppConfig):
 
         except Exception as e:
             logger.error("=" * 60)
-            logger.error(f"✗ 模型載入過程中發生錯誤: {e}", exc_info=True)
+            logger.error("✗ 模型載入過程中發生錯誤: %s", e, exc_info=True)
             logger.error("=" * 60)

@@ -189,6 +189,25 @@ curl -X POST http://localhost:8000/api/v1/admin/model/test/ -H "Content-Type: ap
 
 > 驗證重點：服務啟動後 `GET /api/health/` 需回 200。
 
+### Windows 使用 Podman 的前置（必要）
+
+Podman 在 Windows 上需要透過 VM（預設為 WSL）執行 Linux containers，因此第一次使用前請先把 Podman 的 machine 啟起來：
+
+```powershell
+# 第一次使用（會建立 VM）
+podman machine init --now
+
+# 之後要啟動/停止 VM
+podman machine start
+podman machine stop
+
+# 檢查狀態
+podman machine list
+podman info
+```
+
+建議安裝 Podman Desktop 來管理 machine/映像/容器（可選，但對 Windows 方便）。
+
 ### 使用 Podman
 
 ```bash
@@ -203,6 +222,31 @@ podman run -d \
   -v ./config:/app/config:ro \
   -v ./logs:/app/logs \
   translation-service
+```
+
+### 使用 Podman Compose（推薦，直接沿用 docker-compose.yaml）
+
+本專案已提供 `docker-compose.yaml`，Podman 可以用 `podman compose` 直接啟動：
+
+```bash
+podman compose -f docker-compose.yaml up -d
+```
+
+停止並清掉容器/網路：
+
+```bash
+podman compose -f docker-compose.yaml down
+```
+
+注意：`podman compose` 會呼叫外部 compose provider（例如 `docker-compose` 或 `podman-compose`）。
+若你執行 `podman compose` 時提示找不到 provider，請先安裝其中一個：
+
+```powershell
+# 其中一種選項：用 pip 安裝 podman-compose
+python -m pip install podman-compose
+
+# (可選) 指定要用哪個 provider
+$env:PODMAN_COMPOSE_PROVIDER = "podman-compose"
 ```
 
 ### 使用 Docker

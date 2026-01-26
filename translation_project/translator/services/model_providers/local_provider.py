@@ -40,6 +40,8 @@ class LocalModelProvider(BaseModelProvider):
         self._error_message: Optional[str] = None
         self._loading_progress: float = 0.0
         self._progress_callback: Optional[Callable[[float, str], None]] = None
+        # 記錄實際載入的模型路徑，供模型類型識別使用
+        self._loaded_model_path: Optional[Path] = None
 
     def set_progress_callback(self, callback: Optional[Callable[[float, str], None]]):
         """設定進度回呼函數"""
@@ -181,6 +183,9 @@ class LocalModelProvider(BaseModelProvider):
                 trust_remote_code=True,
             )
 
+            # 記錄實際載入的模型路徑
+            self._loaded_model_path = model_path
+
             self._report_progress(95, "模型初始化中...")
             self._status = ModelStatus.LOADED
             self._loading_progress = 100.0
@@ -242,7 +247,20 @@ class LocalModelProvider(BaseModelProvider):
         Translategemma 有特殊的 chat template 格式要求：
         - 不支援 system role
         - user message content 必須是包含翻譯參數的陣列格式
+
+        使用多種方式來識別：
+        1. 實際載入的模型路徑（最可靠）
+        2. 配置中指定的模型路徑
+        3. 配置中的模型名稱
         """
+        # 優先使用實際載入的模型路徑
+        if self._loaded_model_path is not None:
+            path_str = str(self._loaded_model_path).lower()
+            if 'translategemma' in path_str:
+                logger.debug("透過實際載入路徑識別為 Translategemma: %s", path_str)
+                return True
+
+        # 從配置中取得路徑和名稱
         config = getattr(self, '_config', None)
         if not isinstance(config, dict):
             config = {}
@@ -251,8 +269,12 @@ class LocalModelProvider(BaseModelProvider):
         model_name = local_config.get('name', '').lower()
         model_path = local_config.get('path', '').lower()
 
-        # 檢查模型名稱或路徑是否包含 translategemma
-        return 'translategemma' in model_name or 'translategemma' in model_path
+        is_translategemma = 'translategemma' in model_name or 'translategemma' in model_path
+
+        if is_translategemma:
+            logger.debug("透過配置識別為 Translategemma: name=%s, path=%s", model_name, model_path)
+
+        return is_translategemma
 
     def _process_translategemma_prompt(self, data: dict) -> str:
         """
@@ -448,6 +470,7 @@ class LocalModelProvider(BaseModelProvider):
 
         self._status = ModelStatus.NOT_LOADED
         self._device = None
+        self._loaded_model_path = None
         logger.info("模型已卸載（本地模式）")
 
     def _report_progress(self, progress: float, message: str):

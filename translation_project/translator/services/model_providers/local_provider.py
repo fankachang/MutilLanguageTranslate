@@ -5,6 +5,9 @@
 """
 
 import logging
+import gc
+import threading
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable
 
@@ -62,6 +65,9 @@ class LocalModelProvider(BaseModelProvider):
         logger.info("開始載入 TAIDE-LX-7B 模型（本地模式）...")
         self._report_progress(5, "初始化配置...")
 
+        smooth_stop = threading.Event()
+        smooth_thread: Optional[threading.Thread] = None
+
         try:
             # 取得模型路徑
             model_path = self._get_model_path()
@@ -73,6 +79,30 @@ class LocalModelProvider(BaseModelProvider):
             # 延遲導入 transformers
             self._report_progress(15, "導入 transformers 套件...")
             from transformers import AutoModelForCausalLM, AutoTokenizer
+
+            def _set_progress_no_log(progress: float, message: str):
+                self._loading_progress = float(progress)
+                if self._progress_callback:
+                    try:
+                        self._progress_callback(float(progress), message)
+                    except (TypeError, ValueError, RuntimeError):
+                        pass
+
+            def _start_smooth_progress(start: int, end: int, message: str, interval_seconds: float = 2.0):
+                nonlocal smooth_thread
+                if smooth_thread is not None and smooth_thread.is_alive():
+                    return
+
+                def _run():
+                    current = int(start)
+                    target_end = int(end)
+                    while not smooth_stop.is_set() and current < target_end:
+                        current += 1
+                        _set_progress_no_log(current, message)
+                        time.sleep(interval_seconds)
+
+                smooth_thread = threading.Thread(target=_run, daemon=True)
+                smooth_thread.start()
 
             # 讀取量化與 offload 選項
             local_config = self._config.get('local', {})
@@ -128,6 +158,10 @@ class LocalModelProvider(BaseModelProvider):
                             bnb_4bit_quant_type="nf4"
                         )
 
+                        # from_pretrained 可能耗時很久：用平滑進度避免卡在 25
+                        _start_smooth_progress(
+                            25, 74, "模型權重載入中...", interval_seconds=5.0)
+
                         self._model = AutoModelForCausalLM.from_pretrained(
                             str(model_path),
                             quantization_config=bnb_config,
@@ -138,6 +172,8 @@ class LocalModelProvider(BaseModelProvider):
                         logger.info("✓ 成功使用 4-bit 量化載入模型")
                     except ImportError:
                         logger.warning("bitsandbytes 未安裝，改回 float16 模式")
+                        _start_smooth_progress(
+                            25, 74, "模型權重載入中...", interval_seconds=5.0)
                         self._model = AutoModelForCausalLM.from_pretrained(
                             str(model_path),
                             dtype=torch.float16,
@@ -147,6 +183,8 @@ class LocalModelProvider(BaseModelProvider):
                         )
                     except Exception as e:
                         logger.warning(f"4-bit 量化載入失敗，改回非量化載入: {e}")
+                        _start_smooth_progress(
+                            25, 74, "模型權重載入中...", interval_seconds=5.0)
                         self._model = AutoModelForCausalLM.from_pretrained(
                             str(model_path),
                             dtype=torch.float16,
@@ -157,6 +195,8 @@ class LocalModelProvider(BaseModelProvider):
                 else:
                     # float16 模式
                     self._report_progress(25, "float16 模式載入中...")
+                    _start_smooth_progress(
+                        25, 74, "模型權重載入中...", interval_seconds=5.0)
                     self._model = AutoModelForCausalLM.from_pretrained(
                         str(model_path),
                         dtype=torch.float16,
@@ -169,6 +209,9 @@ class LocalModelProvider(BaseModelProvider):
                 logger.info("使用 CPU 模式")
                 self._report_progress(20, "使用 CPU 模式，載入模型...")
 
+                _start_smooth_progress(
+                    20, 74, "模型權重載入中...", interval_seconds=5.0)
+
                 self._model = AutoModelForCausalLM.from_pretrained(
                     str(model_path),
                     dtype=torch.float32,
@@ -176,12 +219,25 @@ class LocalModelProvider(BaseModelProvider):
                     trust_remote_code=True,
                 )
 
+            # 停止平滑進度，避免後續階段被背景執行緒覆寫
+            smooth_stop.set()
+            if smooth_thread is not None:
+                smooth_thread.join(timeout=1.0)
+
             # 載入 tokenizer
             self._report_progress(75, "載入 Tokenizer...")
+            # Tokenizer 有時也會花一些時間，稍微平滑一下
+            smooth_stop.clear()
+            _start_smooth_progress(
+                75, 94, "Tokenizer 載入中...", interval_seconds=1.0)
             self._tokenizer = AutoTokenizer.from_pretrained(
                 str(model_path),
                 trust_remote_code=True,
             )
+
+            smooth_stop.set()
+            if smooth_thread is not None:
+                smooth_thread.join(timeout=1.0)
 
             # 記錄實際載入的模型路徑
             self._loaded_model_path = model_path
@@ -195,6 +251,9 @@ class LocalModelProvider(BaseModelProvider):
             return True
 
         except Exception as e:
+            smooth_stop.set()
+            if smooth_thread is not None:
+                smooth_thread.join(timeout=1.0)
             self._status = ModelStatus.ERROR
             self._error_message = str(e)
             self._loading_progress = 0.0
@@ -547,15 +606,38 @@ class LocalModelProvider(BaseModelProvider):
     def unload(self):
         """卸載模型"""
         if self._model is not None:
-            del self._model
+            model = self._model
             self._model = None
+            del model
 
         if self._tokenizer is not None:
-            del self._tokenizer
+            tokenizer = self._tokenizer
             self._tokenizer = None
+            del tokenizer
+
+        # 先觸發 GC，確保 Python 層引用真正釋放
+        gc.collect()
 
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            # 同步避免尚未完成的 kernel 導致 cache 無法回收
+            try:
+                torch.cuda.synchronize()
+            except RuntimeError:  # pragma: no cover
+                pass
+
+            try:
+                torch.cuda.empty_cache()
+            except RuntimeError:  # pragma: no cover
+                pass
+
+            # 回收 IPC 相關的共享記憶體（有些情境下能再釋放一些保留量）
+            try:
+                torch.cuda.ipc_collect()
+            except (AttributeError, RuntimeError):  # pragma: no cover
+                pass
+
+        # 再做一次 GC，確保清理後的物件釋放
+        gc.collect()
 
         self._status = ModelStatus.NOT_LOADED
         self._device = None

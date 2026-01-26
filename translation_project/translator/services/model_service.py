@@ -381,12 +381,13 @@ class ModelService:
 
     def unload_model(self):
         """卸載模型以釋放記憶體"""
-        with self._lock:
-            if self._provider is not None:
-                self._provider.unload()
-                self._provider = None
+        with ModelService._lock:
+            provider = ModelService._provider
+            if provider is not None:
+                provider.unload()
+                ModelService._provider = None
 
-            self._provider_type = None
+            ModelService._provider_type = None
             ModelService._active_model_id = None
             logger.info("模型已卸載")
 
